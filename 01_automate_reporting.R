@@ -35,6 +35,7 @@ targets <- read_excel("data/target_setting_data.xlsx"
 kin <- read_excel("data/kin_section4_narratives.xlsx")
 
 con <- DBI::dbConnect(RSQLite::SQLite(), "../../data/20240804/dis_extract.db")
+dbWriteTable(con, "pt_udns", pt_udns, overwrite = TRUE)
 # con <- DBI::dbDisconnect(con)
 
 # copy_to(con, data)

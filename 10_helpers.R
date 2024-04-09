@@ -19,7 +19,8 @@ make_abline <- function(pt_data = pt_data, target = target){
     # filter(year == year) %>%
     select(year, value) %>%
     bind_rows(target) %>%
-    mutate(name = "Priority Target")
+    mutate(name = "Priority Target") %>%
+    mutate(lower = value - (value*.1), upper = value + (value*.1))
 }
 
 make_plot_params <- function(this_year, abline = NA, deviation = .1, psi = NA) {
@@ -47,13 +48,19 @@ make_plot_params <- function(this_year, abline = NA, deviation = .1, psi = NA) {
     } else if(this_year$value >= lower) {
       "On track"
     }
+
+    subtitle <- paste0(
+      "FY30 Target is to significantly increase from "
+      , scales::dollar_format()(this_year$value)
+      , " (FY23 value)")
+
     text_color <- if(this_year$value < lower){
       "#651D32"
     } else if(this_year$value >= lower) {
       "#0067B9"
     }
   }
-  params <- c("title" = title, "color" = text_color)
+  params <- c("title" = title, "color" = text_color, "subtitle" = subtitle)
   return(params)
 }
 

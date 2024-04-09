@@ -1,0 +1,57 @@
+---
+title: "`r paste0('USAID ', ou_name, ' Country Scorecard FY23')`"
+output: 
+  word_document: 
+    reference_doc: "~/R scripts/country_scorecards/country_scorecards/v1scorecard_template.docx"
+params:
+  data: data
+  ou_name: ou_name
+  targets: targets
+  ou_kin: ou_kin
+  n_activities: n_activities
+  scores: scores
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warnings = FALSE)
+library(usaidplot)
+library(cowplot)
+library(ggplot2)
+library(tidyverse)
+library(readxl)
+library(extrafont)
+library(extrafontdb)
+library(DBI)
+library(RSQLite)
+library(disR)
+source("10_helpers.R")
+source("02_make_scorecard_plots.R")
+
+```
+
+
+```{r, warning=FALSE, message=FALSE, fig.width=8, fig.height=8}
+section1 <- s1_plot(data = params$data, ou_name = params$ou_name, targets = params$targets,
+        ou_kin = params$ou_kin,  n_activities = params$n_activities, scores = params$scores)
+```
+
+
+```{r, warning=FALSE, message=FALSE, fig.width=8, fig.height=8}
+section1 <- s1_plot(data = input_data, ou_name = ou_name, targets = targets,
+        ou_kin = ou_kin,  n_activities = n_activities, scores = scores)
+section1["plot"]$plot
+```
+
+
+```{r}
+# Contextual charts
+```
+
+```{r}
+# maps
+```
+
+```{r}
+# Appendix
+```
+

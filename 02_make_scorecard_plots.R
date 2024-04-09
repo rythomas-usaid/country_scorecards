@@ -11,8 +11,7 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
     filter(ro == "USAID" & str_detect(ou, ou_name) & year %in% years)
   target <- targets %>% filter(operating_unit == ou_name) %>%
     select(value = eg_3_2_26) %>% mutate(year = 2030L)
-  abline <- make_abline(pt_data, target = target) %>%
-    mutate(lower = value - (value*.1), upper = value + (value*.1))
+  abline <- make_abline(pt_data, target = target)
 
   this_year <- pt_data %>% filter(name == "actual") %>%
     drop_na() %>% slice(which.max(year)) %>%
@@ -21,8 +20,7 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
   plot_params <- make_plot_params(this_year = this_year, abline = abline, deviation = deviation)
   # print(plot_params["title"])
   scores$score[scores$pt == "PT1"] <- as.factor(plot_params["title"])
-  sales_plot <- pt_data  %>%
-    bind_rows(abline) %>%
+  sales_plot <- pt_data  %>%  bind_rows(abline) %>%
     mutate(name = case_when(
       name == "actual" ~ "Actual", name == "target" ~ "OU Target"
       , .default = name)
@@ -101,12 +99,18 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
                             , .default = name)
            , `Fiscal Year` = as.Date(paste0(year, "-01-01"))) %>%
     rename(`Value Type` = name) %>%
+    # ------------ ggplot
     ggplot(aes(x = `Fiscal Year`, y = value , color = `Value Type`
                , linetype = `Value Type`)) +
     geom_point(size = 2.3) + geom_line(linewidth = 1) +
     ylim(c(0, NA)) + ylab("") + xlab("") +
-    usaid_colors() + common_theme() + theme(legend.position = "none") +
-    ggtitle(label = "PT2: Gender financing")
+    theme(legend.position = "none") +
+    geom_ribbon(aes(ymin = lower, ymax = upper, fill = paste0(deviation*100, "% Deviation"))
+                , alpha = 0.1, colour = NA ) +
+    usaid_colors() + #usaid_fill_manual() +
+    guides(color=guide_legend(override.aes=list(fill=NA))) +
+    common_theme() +
+    ggtitle(label = "PT2: Gender financing ratio ($ per female/$ per male)")
 
   ## TEXT ---------------
   pt_text <- gender_financing_(data, level="im") %>%
@@ -157,12 +161,16 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
       , `Fiscal Year` = as.Date(paste0(year, "-01-01"))) %>%
     rename(`Value Type` = name, "PT3: Climate Hectares" = value) %>%
     # ------------ ggplot
-    ggplot(aes(x = `Fiscal Year`, y = `PT3: Climate Hectares`, linetype = `Value Type`, color = `Value Type`)
-    ) +
+    ggplot(aes(x = `Fiscal Year`, y = `PT3: Climate Hectares`
+               , linetype = `Value Type`, color = `Value Type`)) +
     geom_point(size = 2.3) + geom_line(linewidth = 1) +
+    geom_ribbon(aes(ymin = lower, ymax = upper
+                    , fill = paste0(deviation*100, "% Deviation"))
+              , alpha = 0.1, colour = NA ) +
     # ------------ Set themes
     ylim(c(0, NA)) + ylab("") + xlab("") +
     scale_y_continuous( labels = scales::comma, limits = c(0, NA)) +
+    guides(color=guide_legend(override.aes=list(fill=NA))) +
     usaid_colors() + common_theme() + theme(legend.position="none") +
     ggtitle(label = "PT3: Climate Hectares")
   # hectares_plot
@@ -261,9 +269,10 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
   if(nrow(mddw) == 0L) {
     plot_params <- list(title = "Not available", color = "#8C8985")
     mddw_plot <- ggplot() +
-      geom_text(aes(x=0, y=0, label = "No MDD-W data available")
+      geom_text(aes(x=0, y=0, label = "No available PT5: MDD-W data")
                 , family = "Gill Sans MT", color = plot_params["color"]
-                , fontface = "bold", size = 14 /.pt)
+                , fontface = "bold", size = 14 /.pt) +
+      theme_void()
   } else if(nrow(mddw) > 0L) {
     target <- targets %>% filter(operating_unit == ou_name) %>%
       select(value = hl_9_1_d, last_pbs, next_pbs) %>%
@@ -306,8 +315,8 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
     xlab("") + ylab("") + theme(plot.margin = unit(c(0,0,0,0), "lines")) +
     theme_void() + theme(legend.position = "none") +
     coord_fixed(ratio = 3)
-    overall_score <- paste0(sum(scores$score == "On track"), "/"
-                            , sum(!is.na(scores$score )), " Performance Targets")
+    overall_score <- paste0(sum_(scores$score == "On track"), "/"
+                            , sum_(!is.na(scores$score )), " Performance Targets")
     overall_score_text <- ggplot() +
       geom_text(aes(x=0, y=0, label = overall_score)
                 , family = "Gill Sans MT", color = "#6C6463"
