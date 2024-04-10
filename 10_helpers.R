@@ -42,25 +42,26 @@ make_plot_params <- function(this_year, abline = NA, deviation = .1, psi = NA) {
       "#0067B9"
       }
   } else if (psi == TRUE) {
-    lower <- this_year$three_yr_avg#*(1-deviation)
-    title <- if(this_year$value < lower){
+    lower <- this_year$three_yr_avg[this_year$year == 2022 & this_year$name == "actual"]
+    fy23_three_year <- this_year$three_yr_avg[this_year$year == 2023 & this_year$name == "actual"]
+    title <- if(fy23_three_year < lower){
       "Falling behind"
-    } else if(this_year$value >= lower) {
+    } else if(fy23_three_year >= lower) {
       "On track"
     }
 
-    subtitle <- paste0(
-      "FY30 Target is to significantly increase from "
-      , scales::dollar_format()(this_year$value)
-      , " (FY23 value)")
+    # subtitle <- paste0(
+    #   "FY30 Target is to significantly increase from "
+    #   , scales::dollar_format()(this_year$value)
+    #   , " (FY23 value)")
 
-    text_color <- if(this_year$value < lower){
+    text_color <- if(fy23_three_year < lower){
       "#651D32"
-    } else if(this_year$value >= lower) {
+    } else if(fy23_three_year >= lower) {
       "#0067B9"
     }
   }
-  params <- c("title" = title, "color" = text_color, "subtitle" = subtitle)
+  params <- c("title" = title, "color" = text_color)
   return(params)
 }
 
@@ -104,13 +105,11 @@ common_theme <- function(){
         }
 
 usaid_color_manual <- function() {
-  ggplot2::scale_color_manual("",
-    values = rep(c( "#002F6C", "#A7C6ED", "#0067B9", "#651D32","#BA0C2F"
+  ggplot2::scale_color_manual(values = rep(c( "#002F6C", "#A7C6ED", "#0067B9", "#651D32","#BA0C2F"
                     , "#6C6463", "#8C8985"), 500))
 }
 usaid_fill_manual <- function() {
-  ggplot2::scale_fill_manual("",
-    values = rep(c("#BA0C2F", "#002F6C", "#A7C6ED", "#0067B9", "#651D32"
+  ggplot2::scale_fill_manual(values = rep(c("#BA0C2F", "#002F6C", "#A7C6ED", "#0067B9", "#651D32"
                     , "#6C6463", "#8C8985"), 500))
 }
 colors <- c("On track" = "#0067B9", "Falling behind" = "#0067B9", "Not available" = "#CFCDC9")

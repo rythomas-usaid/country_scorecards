@@ -1,8 +1,9 @@
 
 
 
-s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = scores, years = 2022:2025) {
+s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = scores, years = 2022:2024) {
 # data <- input_data
+# years <- 2022:2024
   rh <- c(.2, 1)
   deviation = .1
 
@@ -31,16 +32,15 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
                , color = `Value Type`, linetype = `Value Type`)) +
     geom_point(size = 2.3) + geom_line(linewidth = 1) +
     # ------------ Set themes
-    ylim(c(0, NA)) + ylab("") + xlab("") +
     theme(legend.position = "bottom") +
+    ylim(c(0, NA)) + ylab("") + xlab("") +
 
     geom_ribbon(aes(ymin = lower, ymax = upper, fill = paste0(deviation*100, "% Deviation"))
-                , alpha = 0.1, colour = NA ) +
-
-    scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
-    usaid_colors() + #usaid_fill_manual() +
+                , alpha = 0.1, colour = NA ) + common_theme() +
+    usaid_color_manual() +
     guides(color=guide_legend(override.aes=list(fill=NA))) +
-    common_theme() +
+    scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
+    #usaid_fill_manual() +
     ggtitle(label = "PT1: Sales")
 
   # extract the legend from one of the plots
@@ -92,8 +92,7 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
     select(year, value)
   plot_params <- make_plot_params(this_year = this_year, abline = abline, deviation = deviation)
   scores$score[scores$pt == "PT2"] <- as.factor(plot_params["title"])
-  gender_finance_plot <- pt_data  %>%
-    bind_rows(abline) %>%
+  gender_finance_plot <- pt_data  %>% bind_rows(abline) %>%
     mutate(name = case_when(name == "actual" ~ "Actual"
                             , name == "target" ~ "Out Year Targets"
                             , .default = name)
@@ -106,10 +105,11 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
     ylim(c(0, NA)) + ylab("") + xlab("") +
     theme(legend.position = "none") +
     geom_ribbon(aes(ymin = lower, ymax = upper, fill = paste0(deviation*100, "% Deviation"))
-                , alpha = 0.1, colour = NA ) +
-    usaid_colors() + #usaid_fill_manual() +
+                , alpha = 0.1, colour = NA ) + common_theme() +
+    usaid_color_manual() +
     guides(color=guide_legend(override.aes=list(fill=NA))) +
-    common_theme() +
+    scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
+    #usaid_fill_manual() +
     ggtitle(label = "PT2: Gender financing ratio ($ per female/$ per male)")
 
   ## TEXT ---------------
@@ -119,7 +119,7 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
            , `Male Per Person`) %>%
     mutate(finance_gap = `Female Per Person` / `Male Per Person`)
   n_aligned <- length(unique(pt_text$a_code))
-  n_contributing <- sum(!is.na(pt_text$actual))
+  n_contributing <- sum(!is.na(pt_text$finance_gap))
   txt <- paste0(
     length(pt_text$a_code[pt_text$name == "actual"])
     ," of those activities aligned the financing indicator, and "
@@ -164,14 +164,13 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
     ggplot(aes(x = `Fiscal Year`, y = `PT3: Climate Hectares`
                , linetype = `Value Type`, color = `Value Type`)) +
     geom_point(size = 2.3) + geom_line(linewidth = 1) +
-    geom_ribbon(aes(ymin = lower, ymax = upper
-                    , fill = paste0(deviation*100, "% Deviation"))
-              , alpha = 0.1, colour = NA ) +
-    # ------------ Set themes
-    ylim(c(0, NA)) + ylab("") + xlab("") +
-    scale_y_continuous( labels = scales::comma, limits = c(0, NA)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper, fill = paste0(deviation*100, "% Deviation"))
+                , alpha = 0.1, colour = NA ) + common_theme() +
+    usaid_color_manual() + xlab("") + ylab("") +
+    theme(legend.position = "none") +
     guides(color=guide_legend(override.aes=list(fill=NA))) +
-    usaid_colors() + common_theme() + theme(legend.position="none") +
+    scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
+    #usaid_fill_manual() +
     ggtitle(label = "PT3: Climate Hectares")
   # hectares_plot
 
@@ -205,11 +204,14 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
   # PSI -------------
   psi <- psi_(data) %>%
     filter(ro == "USAID" & str_detect(ou, ou_name))
-  this_year <- psi %>% filter(name == "actual" & year %in% 2021:2023) %>%
-    summarize(three_yr_avg = mean(value, na.rm=T), value = last(value))
-
-  target <- targets %>% filter(operating_unit == ou_name) %>%
-    select(value = eg_3_1_15) %>% mutate(year = 2030L)
+  this_year <- psi %>%
+    filter(name == "actual") %>%
+    mutate(lag.2 = lag(value, n=2, order_by = year),
+           lag.1 = if_else(!is.na(lag.2), lag(value,order_by = year), NA)) %>%
+    rowwise() %>%
+    mutate(three_yr_avg = mean(c(value, lag.1, lag.2)))
+  # target <- targets %>% filter(operating_unit == ou_name) %>%
+  #   select(value = eg_3_1_15) %>% mutate(year = 2030L)
   # abline <- make_abline(pt_data = pt_data, target = target)
   # this_year <- psi %>% filter(name == "actual") %>%
   #   drop_na() %>% slice(which.max(year)) %>%
@@ -219,6 +221,11 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
   scores$score[scores$pt == "PT4"] <- as.factor(plot_params["title"])
     # ----------- Prep data
   psi_plot <- psi  %>%
+    bind_rows(this_year %>%
+                select(year, three_yr_avg) %>%
+                mutate(name = "Three Year Average") %>%
+                rename(value = three_yr_avg)) %>%
+    filter(!(name == "target" & year != 2024)) %>%
     mutate(name = case_when(
       name == "actual" ~ "Actual", name == "target" ~ "OU Target"
       , .default = name)
@@ -229,13 +236,13 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
                , linetype = `Value Type`)) +
     geom_point(size = 2.3) + geom_line(linewidth = 1) +
     # ------------ Set themes
-    xlim(c(as.Date("2022-01-01"), as.Date("2030-01-01"))) + ylab("") + xlab("") +
-    common_theme() + theme(legend.position="none") +
+    xlim(c(as.Date("2020-01-01"), as.Date("2030-01-01"))) + ylab("") + xlab("") +
+    common_theme() + theme(legend.position="inside") +
     # Then override the following theme parameters.
-    scale_linetype_manual(values = c("Actual" = 1, "OU Target" = 3)) +
-    usaid_colors() +
+    scale_linetype_manual(values = c("Actual" = 1, "OU Target" = 3, "Three Year Average" = 2)) +
+    usaid_color_manual() +
     scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
-    ggtitle(label = "PT4: PSI")
+    ggtitle(label = "PT4: Private sector investment")
   # psi_plot
   ## TEXT ----------------
   pt_text <- data %>%
@@ -266,14 +273,46 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
 
   # MDD-W -------------
   mddw <- mddw_(data) %>% filter(ro == "USAID" & str_detect(ou, ou_name))
-  if(nrow(mddw) == 0L) {
+  has_target <- nrow(mddw %>% filter(name == "target" & !is.na(value))) > 0L
+  has_actual <- nrow(mddw %>% filter(name == "actual" & !is.na(value))) > 0L
+
+  if(!any(has_target, has_actual)) { # has no target or actual
     plot_params <- list(title = "Not available", color = "#8C8985")
     mddw_plot <- ggplot() +
       geom_text(aes(x=0, y=0, label = "No available PT5: MDD-W data")
                 , family = "Gill Sans MT", color = plot_params["color"]
                 , fontface = "bold", size = 14 /.pt) +
       theme_void()
-  } else if(nrow(mddw) > 0L) {
+    mddw_text <- ggplot() +
+      geom_text(aes(x=0, y=0, label = plot_params["title"])
+                , family = "Gill Sans MT", color = "#8C8985"
+                , fontface = "bold", size = 14 /.pt) +
+      theme_void()
+  } else if(has_actual & !has_target) {
+    plot_params <- list(title = "TBD after next PBS", color = "#8C8985")
+    mddw_plot <- mddw  %>% filter(year %in% 2020:2030) %>%
+      mutate(name = case_when(
+        name == "actual" ~ "Actual", name == "target" ~ "OU Target", .default = name)
+        , `Fiscal Year` = as.Date(paste0(year, "-01-01"))) %>%
+      rename(`Value Type` = name, "PT5: MDD-W" = value) %>%
+
+      # ------------ ggplot
+      ggplot(aes(x = `Fiscal Year`, y = `PT5: MDD-W`/100
+                 , linetype = `Value Type`, color = `Value Type`)) +
+      geom_point(size = 2.3) + geom_line(linewidth = 1) +
+      # ------------ Set themes
+      ylab("") + xlab("") +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+      usaid_color_manual() + common_theme() + theme(legend.position="none") +
+      ggtitle(label = "PT5: MDD-W (% in ZOI)")
+
+    mddw_text <- ggplot() +
+      geom_text(aes(x=0, y=0, label = plot_params["title"])
+                , family = "Gill Sans MT", color = "#8C8985"
+                , fontface = "bold", size = 14 /.pt) +
+      theme_void()
+
+  } else if(has_actual & has_target) {
     target <- targets %>% filter(operating_unit == ou_name) %>%
       select(value = hl_9_1_d, last_pbs, next_pbs) %>%
       mutate(value = value *100, year = 2030L)
@@ -297,11 +336,17 @@ s1_plot <- function(data, ou_name, targets, ou_kin, n_activities, scores = score
       # ------------ Set themes
       ylab("") + xlab("") +
       scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
-      usaid_colors() + common_theme() + theme(legend.position="none") +
+      usaid_color_manual() + common_theme() + theme(legend.position="none") +
       ggtitle(label = "PT5: MDD-W (% in ZOI)")
+
+    mddw_text <- ggplot() +
+      geom_text(aes(x=0, y=0, label = plot_params["title"])
+                , family = "Gill Sans MT", color =  plot_params["color"]
+                , fontface = "bold", size = 14 /.pt) +
+      theme_void()
   }
 
-  mddw_text <- NULL
+  mddw_text <- mddw_text
   scores$score[scores$pt == "PT5"] <- as.factor(plot_params["title"])
 
     # Stars ------
@@ -357,7 +402,7 @@ s2_plot <- function(pov=NA, agti=NA, budget=NA) {
     geom_hline(color = "#BA0C2F", yintercept = budget_hline, linewidth = 1) +
     # ------------ Set themes
     guides(color = guide_legend(position = "inside")) +
-    usaid_colors() + common_theme() + theme(legend.position="none") +
+    usaid_color_manual() + common_theme() + theme(legend.position="none") +
     scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
     ylab("") + xlab("") +
     ggtitle(label = "EG3 Budget Trend", subtitle = "Horizontal line is baseline")

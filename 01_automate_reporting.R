@@ -5,6 +5,7 @@ library(cowplot)
 library(ggplot2)
 library(ggstar)
 library(tidyverse)
+library(zoo)
 library(readxl)
 library(extrafont)
 library(extrafontdb)
@@ -39,7 +40,9 @@ dbWriteTable(con, "pt_udns", pt_udns, overwrite = TRUE)
 # con <- DBI::dbDisconnect(con)
 
 # copy_to(con, data)
-extract <- tbl(con, "extract") %>% janitor::clean_names()
+extract <- tbl(con, "extract") %>%
+  filter(indicator_origin == "FTF") %>%
+  janitor::clean_names()
 pt_udns <- tbl(con, "pt_udns")
 
 ## Define active activities -----------
@@ -78,15 +81,17 @@ input_data <- inner_join(extract, pt_udns) %>% as_tibble()
 ## Define params -----------
 
 ou_names <- c("Bangladesh", "Malawi", "Ethiopia")
- scores <- data.frame(pt = c("PT1", "PT2", "PT3", "PT4", "PT5")
-                       , name = c("sales", "financing", "hectares", "psi", "mddw")
-                       , y = rep(1,5)
-                       , score = factor(rep("Not applicable", 5)
-                                        , levels = c("On track", "Falling behind", "Not applicable"))
-                       )
+scores <- data.frame(
+  pt = c("PT1", "PT2", "PT3", "PT4", "PT5")
+  , name = c("sales", "financing", "hectares", "psi", "mddw")
+  , y = rep(1,5)
+  , score = factor(rep("Not applicable", 5)
+                   , levels = c("On track", "Falling behind", "Not applicable"))
+  )
 
-for ( ou_name in ou_names) {
-  ou_name = "Malawi"
+ # ou_name = "Ethiopia"
+
+for (ou_name in ou_names) {
   output_file <- paste0(ou_name, ".docx")
   n_activities <- active_activities %>%
     filter(ro == "USAID" & str_detect(ou, ou_name)) %>%

@@ -33,13 +33,14 @@ source("02_make_scorecard_plots.R")
 ```{r, warning=FALSE, message=FALSE, fig.width=8, fig.height=8}
 section1 <- s1_plot(data = params$data, ou_name = params$ou_name, targets = params$targets,
         ou_kin = params$ou_kin,  n_activities = params$n_activities, scores = params$scores)
+section1["plot"]$plot
 ```
 
 
 ```{r, warning=FALSE, message=FALSE, fig.width=8, fig.height=8}
-section1 <- s1_plot(data = input_data, ou_name = ou_name, targets = targets,
-        ou_kin = ou_kin,  n_activities = n_activities, scores = scores)
-section1["plot"]$plot
+# section1 <- s1_plot(data = input_data, ou_name = ou_name, targets = targets,
+#         ou_kin = ou_kin,  n_activities = n_activities, scores = scores)
+# section1["plot"]$plot
 ```
 
 
