@@ -1,0 +1,299 @@
+---
+title: "`r paste0('FTF FY 2023 Performance Scorecard ',paste0(trimws(gsub('USAID ','',gsub('\\(.*$','',params$ou_name )))) )`"
+output: 
+  word_document: 
+    reference_doc: "~/R_scripts/country_scorecards/country_scorecards/v1scorecard_template.docx"
+params:
+  ou_name: ou_name
+  input_dat: input_dat
+  extract: extract
+  pt_dat: pt_dat
+  pt_upload: pt_upload
+  active_activities_dat: active_activities_dat
+  active_activities_unique: active_activities_unique
+  kin: kin
+  mddw_dat: mddw_dat
+  scores: scores
+  national_df: national_df
+  ati: ati
+  top5_disbursements: top5_disbursements
+  top5_results: top5_results
+  budget: budget
+  ftf_budget: ftf_budget
+  mapfile: mapfile
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warnings = FALSE)
+library(usaidplot)
+# library(cowplot)
+library(patchwork)
+library(ggplot2)
+library(ggrepel)
+library(tidyverse)
+library(readxl)
+library(extrafont)
+library(extrafontdb)
+library(DBI)
+library(RSQLite)
+library(disR)
+source("10_helpers.R")
+source("02_make_scorecard_plots.R")
+
+n_activities <- params$active_activities_unique %>% filter(ro == ro, ou == ou_name) %>%
+      distinct(a_code) %>% arrange(a_code) %>% nrow()
+dna_udns <- c("3.5.1.2.4", "3.6.1.2.4", "3.7.1.2.4", "3.5.2.2.4", "3.6.2.2.4", "3.7.2.2.4")
+other_udns <- c("3.5.1.2.3", "3.6.1.2.3", "3.7.1.2.3", "3.5.2.2.3", "3.6.2.2.3", "3.7.2.2.3")
+finance_sex_dna <- params$extract %>%
+  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn %in% dna_udns) %>%
+  summarize(dna = sum_(actual))
+finance_sex_mixed <- params$extract %>%
+  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn %in% other_udns) %>%
+  summarize(mixed = sum_(actual))
+total_financing <- params$extract %>%
+  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn == "3") %>%
+  summarise(total = sum_(actual)) %>% "["("total")
+ou_dat <- params$pt_dat %>% filter(ou == ou_name) %>% arrange(ro, ou, year, type, name)
+
+section1 <- s1_plot(dat = params$input_dat
+                    , ou_name = params$ou_name
+                    , mddw = params$mddw_dat
+                    , ou_dat = ou_dat
+                    , n_activities = n_activities
+                    , finance_sex_dna = finance_sex_dna
+                    , total_financing = total_financing
+                    , finance_sex_mixed = finance_sex_mixed
+                    , scores = params$scores)
+```
+
+This Feed the Future (FTF) Performance Scorecard assesses the `r paste0(trimws(gsub("\\(.*$", "", params$ou_name )))` progress toward FY 2030 Performance Targets.
+
+# Performance Overview
+
+```{r stars, fig.width=6.5, fig.height=.75, warning=FALSE, message=FALSE}
+section1["stars_plot"]$stars_plot + section1["overall_score_text"]$overall_score_text +
+  plot_layout( ncol = 2, widths = unit(c(2, 4.5), c("in")))
+```
+
+The FY 2023 **On track** value is determined by drawing a line from the baseline (FY 2022) to the FY 2030 Target. For FY 2023, Performance Targets are considered **On track** if they have reported at least 90% of that value.
+
+```{r overview plot, warning=FALSE, message=FALSE, fig.width = 6.5, fig.height=2.75}
+summary_dat <- params$pt_upload %>%
+  pivot_longer(c(actual_norm, interim_target_norm)
+               , names_to = "type"
+               , values_to = "value") %>%
+  mutate(type = case_when(type == "actual_norm" ~ "FY23 Actual"
+                          , type == "interim_target_norm" ~ "90% of FY23 'On track' Target")
+         , name = case_when(name == "PT3: Climate hectares" ~ "PT3: Climate adaptive hectares", .default = name)) %>% 
+  filter(ou == ou_name) %>%
+  mutate(name = fct_rev(name), ou_track = case_when(type == "FY23 Actual"~ ou_track)) 
+
+summary_plot <- summary_dat %>%
+  mutate(value = case_when(type == "90% of FY23 'On track' Target" ~ value *0.9, .default = value)
+         # , value = case_when(value > 1 ~ 1.01, .default = value)
+         # , ou_track = case_when(value == 1.01 ~ "On track*", .default = ou_track)
+         ) %>% 
+  ggplot(aes(y = name, x=value*100, color = fct_rev(type), label = ou_track)) +
+  geom_line(aes(group=name), color = "#8C8985", size = 1, show.legend = FALSE) +
+  geom_point(stat = "identity", size = 2.3) + 
+  # scale_color_manual(values = list("FY23 Interim Target" = "#c9c9c9", "FY23 Actual" = "#8C8985")) +
+  # new_scale_color() +
+  geom_vline(xintercept = 100, colour = "#0067B9") +
+  geom_text_repel(x = 2, nudge_y = .05
+            , color = ifelse(summary_dat$ou_track == "On track", "#00B050"
+                    #, ifelse(dat$ou_track == "On track*", "#00B050"
+                    , ifelse(summary_dat$ou_track == "Not on track", "#f4231a", "#c9c9c9"))
+            , show.legend = F, family = "Gill Sans MT"
+            , hjust = 0, fontface = "bold") +
+  # geom_text(aes(x = 100, y = 4.5, label = "FY30 Performance Target")
+  #           , colour = "#0067B9", show.legend = FALSE) +
+
+  usaid_plot() + common_theme() + 
+  scale_color_manual(values = c("90% of FY23 'On track' Target" = "#BA0C2F", "FY23 Actual" = "#002F6C")
+                     , breaks = c("FY23 Actual", "90% of FY23 'On track' Target")) +
+  xlab("Percentage of FY 2023 'On track' Target") + ylab("") +
+  theme(legend.position = "bottom"
+        , panel.grid.major.y = ggplot2::element_blank()
+        , panel.grid.minor.x = ggplot2::element_line(color = "#CFCDC9")) +
+  xlim(c(0, NA)) + #ylim(c(NA, 6)) +
+  labs(title = "FTF Performance Targets Snapshot"
+       # , caption = "*FY23 annual value exceeds the FY30 Performance Target"
+       )
+summary_plot
+```
+
+**Note:** *For Performance Target 2 (Gender financing ratio), the target is to increase financing to females for those OUs that are already achieving parity (\$1).*
+
+*For Performance Target 4 (PSI), all targets are relative to the last three years’ reporting. In future years, the interim targets may increase.*
+
+*For Performance Target 5 (MDD-W), all FY23 actual values are also the baseline, and may have been collected in a prior year. See the detail page for more information.*
+
+*See detailed [methodology document](https://docs.google.com/document/d/13n-43ppFiGKauscQ7HaAiQDCM4DssGEgRdq2fMyTDn0/edit) here. If you have questions, please email the FTF Data and Analytics team at* [refs.adl.da\@usaid.gov](mailto:refs.adl.da@usaid.gov){.email}.
+
+### Performance Target (PT) Details
+
+This section shows PT scores for each applicable PT for `r paste0(trimws(gsub("\\(.*$", "", params$ou_name )))`.
+
+## Performance Target 1: Value of annual sales of producers and firms receiving USG assistance
+
+```{r sales text, fig.width=6.5, fig.height=.5, warning=FALSE, message=FALSE}
+section1["sales_text"]$sales_text
+#scales::dollar_format()(this_year$value)
+```
+
+```{r sales plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
+section1["sales_plot"]$sales_plot
+```
+
+`r paste(section1["sales_txt"]$sales_txt)`
+
+###### Performance Target 2: Value of financing accessed by female FTF participants per \$1 of financing accessed by male FTF participants
+
+```{r gender text,  fig.width=6.5, fig.height=.5, warning=FALSE, message=FALSE}
+# finance
+section1["gf_text"]$gf_text
+```
+
+```{r gender plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
+section1["gender_finance_plot"]$gender_finance_plot
+```
+
+`r section1["gf_txt"]$gf_txt`
+
+###### Performance Target 3: Number of cultivated hectares under climate adaptation/climate risk management practices and technologies with USG assistance
+
+```{r hectares text, fig.width=6.5, fig.height=.5, warning=FALSE, message=FALSE}
+section1["ht_text"]$ht_text
+```
+
+```{r hectares plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
+section1["hectares_plot"]$hectares_plot
+```
+
+`r section1["ht_txt"]$ht_txt`
+
+###### Performance Target 4: Value of private sector investment leveraged by the USG to support food security and nutrition
+
+```{r PSI text, fig.width=6.5, fig.height=.5, warning=FALSE, message=FALSE}
+section1["psi_text"]$psi_text
+```
+
+```{r PSI details, fig.width=7.5, fig.height=4.5, warning=FALSE, message=FALSE}
+section1["psi_plot"]$psi_plot
+```
+
+`r section1["psi_txt"]$psi_txt`
+
+###### Performance Target 5: Percent of women consuming a diet of minimum diversity (MDD-W)
+
+```{r mddw details, fig.width=6.5, fig.height=.75, warning=FALSE, message=FALSE}
+section1["mddw_text"]$mddw_text
+```
+
+```{r mddw plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
+section1["mddw_plot"]$mddw_plot
+```
+
+`r section1["mddw_txt"]$mddw_txt`
+
+### National Context
+
+<!-- The following country context data has been collected from World Bank sources. -->
+
+<!-- - FDI is foreign direct investment -->
+
+<!-- -  -->
+
+```{r context data, fig.width=6.5, fig.height=3.75, warning=FALSE, message=FALSE}
+plot_df <- params$national_df %>%
+    filter(ou == trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name )))) %>%
+    mutate(year = as.Date(paste0("01-01-", year), format = "%m-%d-%Y")) %>%
+    dplyr::select(ou, year, hunger, poverty, stunting, wasting) %>%
+    unique() %>%
+    pivot_longer(cols = c(3:6)) %>%
+    mutate(name = case_when(name == "ag_value_add" ~ "Off Farm Production (in millions)",
+                            name == "fdi" ~ "FDI",
+                            name == "hunger" ~ "Food Insecurity (%)",
+                            name == "poverty" ~ "Poverty (%)",
+                            name == "stunting" ~ "Stunting (%)",
+                            name == "wasting" ~ "Wasting (%)")) %>%
+  mutate(txt = case_when(name == "Food Insecurity (%)" ~ "Prevalence of moderate or severe food insecurity in the population (%)"
+                         , name == "Poverty (%)" ~ "Poverty headcount ratio at $2.15 a day (2017 PPP) (% of population)"
+                         , name == "Wasting (%)" ~ "Prevalence of wasting, weight for height (% of children under 5)"
+                         , name == "Stunting (%)" ~ "Prevalence of stunting, height for age (% of children under 5)")) %>% 
+    filter(! name %in% c("FDI", "Off Farm Production (in millions)")) %>%
+    drop_na() %>% ungroup()
+
+natl_text <- if(nrow(plot_df) > 0L) {
+  paste0("National level data was collected from the [World Bank’s Open Data portal](https://data.worldbank.org/) that measures key indicators at the national level.")
+  } else knitr::asis_output(paste0("National context data is not available for "
+         , trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name ))), "."))
+```
+
+`r paste0(natl_text)`
+
+```{r context plot, fig.width=6.5, fig.height=3.75, warning=FALSE, message=FALSE}
+if(nrow(plot_df) > 0L) {
+  national_plot(plot_df
+                , trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name ))))
+} else NULL
+  
+```
+
+## Agricultural Transformation Index Score
+
+The IFPRI Agricultural Transformation Index (ATI) Score is a high level indicator of the status of agricultural market systems in each country.
+
+```{r ati plot, fig.width=6.3, fig.height=3, warning=FALSE, message=FALSE}
+p_ati <- ati_plot(params$ati, ou_name)
+p_ati
+```
+
+## Budget Trend
+
+At the Operating Unit level, the Performance Targets are based in part on the FY 2024 budget request. The budget chart below includes EG.3 money only.
+
+```{r}
+if(ou_name == "Bureau for Resilience and Food Security (RFS)") {
+  knitr::asis_output("For the REFS Bureau, this value was divided by two to account for the large proportion of the budget that does not report on Performance Target indicators.")
+}
+```
+
+```{r budget plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
+# Budget --------
+# ou_budget <- budget %>% filter(year %in% 2020:2024 & ou == trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name )))) %>%
+#   mutate(budget = ifelse(ou == "Bureau for Resilience and Food Security (RFS)", budget/2, budget)
+#          , type = ifelse(year > 2024, "653(a) Actual", "Requested")) 
+# budget_hline <- ou_budget %>% filter(year == 2023) %>%
+#   select(budget) %>% as.numeric()
+# # # ----------- Prep data
+# budget_plot <- ou_budget  %>%
+#   rename(`Fiscal Year` = year, `EG3 Budget (000)` = budget) %>%
+#   # ------------ ggplot
+#   ggplot(aes(x = `Fiscal Year`, y = `EG3 Budget (000)`, linetype = type)) +
+#   geom_point(size = 2.3) + geom_line(linewidth = 1, linetype = 4) +
+#   geom_label_repel(aes(label = scales::dollar_format()(`EG3 Budget (000)`)), nudge_y = 100) +
+# 
+#   geom_hline(color = "#BA0C2F", yintercept = budget_hline, linewidth = 1, linetype = 2) +
+#   # ------------ Set themes
+#   # guides(color = guide_legend(position = "inside")) +
+#   usaid_plot() + #common_theme() + 
+#   theme(legend.position="bottom", plot.caption = element_text(size = 12) ) +
+#   scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
+#   ylab("") + xlab("") + 
+#   # ggtitle(label = "EG3 Budget", subtitle = "Horizontal line is baseline") +
+#   # labs(caption = "*REFS' targets were based on *half* of the FY 2023 budget request.")
+#   labs(caption = paste0("* Values are in $1,000s\n**Red dashed line is the budget level used for target setting.", collapse="n"))
+# budget_plot
+
+if(params$ou_name == "Group Target") {
+  # group_target_ous <- filter(params$pt_dat, is_group == TRUE ) %>% distinct(ro, ou)
+  # make_budget_plot(budget = params$budget, ou_name = group_target_ous)
+} else if(params$ou_name == "Group Target") {
+    make_budget_plot(budget = params$budget, ou_name = params$ou_name)
+} else if (params$ou_name == "FTF Initiative") {
+  make_ftf_budget_plot(ftf_budget, ou_name = ou_name)
+}
+```
+
+
