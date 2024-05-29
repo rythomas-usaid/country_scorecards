@@ -1,5 +1,6 @@
 
 # Setup -------------
+
 library(usaidplot)
 # library(cowplot)
 library(ggplot2)
@@ -14,10 +15,21 @@ library(DBI)
 library(RSQLite)
 library(disR)
 library(googlesheets4)
+
+gs4_auth(
+  email = gargle::gargle_oauth_email(),
+  path = NULL,
+  subject = NULL,
+  scopes = "spreadsheets",
+  cache = gargle::gargle_oauth_cache(),
+  use_oob = gargle::gargle_oob_default(),
+  token = NULL
+)
+
 source("10_helpers.R")
 source("02_make_scorecard_plots.R")
-source("03_load_data.R")
-source("04_phoenix_module.R")
+source("03_load_data.R") # includes relevant phoenix module data
+# source("_phoenix_module.R")
 
 ## Define params -----------
 ### Sales ------------------
@@ -276,7 +288,7 @@ mddw_dat <- mddw %>%
 # ou_name <- "USAID Dem Rep Congo (DROC)"
 # ou_names <- unique(active_activities_unique$ou)
 
-map_files <- read_csv("data/map_files.csv")
+map_files <- read_csv("../data/map_files.csv")
 
 # Auto scorecard -----------------
 for(ou_name in ou_target_countries) {
@@ -289,18 +301,17 @@ for(ou_name in ou_target_countries) {
     , score = factor(rep("Not applicable", 5)
                      , levels = c("On track", "Not on track", "Not applicable", "Not available"))
   )
-  mapfile <- paste0("maps/",map_files$file[map_files$ou == ou_name])
+  mapfile <- paste0("../data/maps/",map_files$file[map_files$ou == ou_name])
 
   tryCatch({
     output_file <- paste0(gsub("/", "", ou_name), ".docx")
     # overall
-
     print(paste0("saving to ", output_file))
     rmarkdown::render(
       input = if(ou_name %in% c("FTF Initiative", "Group Target")) "Scorecard-basic.rmd" else "Scorecard.Rmd",
       output_format = "word_document",
       output_file = output_file,
-      output_dir = "output",
+      output_dir = "../output/",
       params = list(
         ou_name = ou_name,
         input_dat = input_dat,

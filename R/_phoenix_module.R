@@ -1,20 +1,5 @@
 
-# library(DBI)
-# library(RSQLite)
-#
-# con <- DBI::dbConnect(RSQLite::SQLite(), "../../data/2024_04_30/dis_extract.db")
-# # dbWriteTable(con, "pt_udns", pt_udns, overwrite = TRUE)
-# # con <- DBI::dbDisconnect(con)
-#
-# # copy_to(con, data)
-# extract <- tbl(con, "extract") %>%
-#   filter(str_detect(a_name, stringr::fixed("_HLI_"), negate = TRUE) # Is not HLI
-#          & str_detect(ou, stringr::fixed("test"), negate = TRUE) # not a test bilateral OU DIS Training Activity - To Be Deleted
-#          & str_detect(a_name, stringr::fixed("test"), negate = TRUE) # not a test activity name
-#          & str_detect(a_name, stringr::fixed("DIS Training Activity - To Be Deleted"), negate = TRUE) # not the Training Activity from Ghana
-#          &( # Is an FTF indicator or activity
-#            indicator_origin == "FTF" | is_ftf == "Y")) %>%
-#   janitor::clean_names() %>% as_tibble()
+
 
 d <- googlesheets4::read_sheet("1YSIFJQ3mOfFsKUJsMKaITl86KlhI9GvWx5fbsJDATRI"
        , sheet = "Data") %>% rename_with(tolower)
@@ -158,86 +143,11 @@ top5_results <- all_results %>%
   mutate(ou_join = tolower(trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou )))), .before = "a_name") %>%
   left_join(disbursements, by, suffix = c("_dis", "_pho")) %>%
   mutate(award_number = ifelse(is.na(award_number), "!! Not reported !!", award_number))
-#
-# disbursements_pt_results_fj <- disbursements  %>%
-#   pivot_wider(values_from = transaction_amt, names_from = year) %>%
-#   # mutate(ou = tolower(ou), year = as.integer(year)) %>%
-#   full_join(all_results, by, suffix = c("_phoenix", "_dis"))
-# # googlesheets4::sheet_write(disbursements_pt_results_fj
-# #                            , "1YSIFJQ3mOfFsKUJsMKaITl86KlhI9GvWx5fbsJDATRI"
-# #                            , sheet = "Disbursements and PT Results -- Full Join")
-
-# ## Summarize by award
-# activity_by_award <- all_results %>%
-#   group_by(ro, ou, ou_join, a_name, a_code, award_number, year) %>%
-#   summarise(sales = sum_(sales)
-#             , `Male Value` = sum_(`Male Value`)
-#             , `Female Value` = sum_(`Female Value`)
-#             , `Male Number` = sum_(`Male Number`)
-#             , `Female Number` = sum_(`Female Number`)
-#             , gender_financing_ratio = ( `Female Value` / `Female Number`) / (`Male Value` / `Male Number`)
-#             , psi = sum_(psi)
-#             , hectares = sum_(hectares))
-#
-# transactions_by_ou_award <- disbursements %>%
-#   # filter(year == 2023) %>%
-#   # pivot_wider(values_from = transaction_amt, names_from = year, values_fn = sum_) %>%
-#   mutate(ou = tolower(ou)
-#          , has_doag_pio = case_when(str_detect("DOAG|PIO", award_number) ~ TRUE
-#                                     , .default=FALSE))
 
 
-# by <- join_by(ro == ro, ou == ou, year == year)
-# transactions_by_ou <- transactions_by_ou_award %>%
-#   mutate(year = as.integer(year)) %>%
-#   full_join(activity_by_award %>% mutate(system = TRUE), by
-#             , suffix = c("_phoenix", "_dis") ) %>%
-#   group_by(ro, ou, year, system_phoenix, system_dis, program_area) %>%
-#   summarise(across(c(award_number, is_document_number, has_doag_pio), ~ paste0(., collapse = "; "))
-#             , sum_transaction_amt = sum_(transaction_amt)
-#             , sum_sales = sum_(sales)
-#             , `Male Value` = sum_(`Male Value`)
-#             , `Female Value` = sum_(`Female Value`)
-#             , `Male Number` = sum_(`Male Number`)
-#             , `Female Number` = sum_(`Female Number`)
-#             , sum_gender_financing_ratio = ( `Female Value` / `Female Number`) / (`Male Value` / `Male Number`)
-#             , sum_psi = sum_(psi)
-#             , sum_hectares = sum_(hectares))
-# # googlesheets4::sheet_write(transactions_by_ou
-# #                            , "1YSIFJQ3mOfFsKUJsMKaITl86KlhI9GvWx5fbsJDATRI"
-# #                            , sheet = "Transactions by OU")
-
-
-# transactions_by_im <- transactions_by_ou_award %>%
-#   mutate(year = as.integer(year)) %>%
-#   full_join(activity_by_award %>% mutate(system = TRUE), by
-#             , suffix = c("_phoenix", "_dis") )  %>%
-#   group_by(ro, ou_join, ou_dis, a_code, a_name, year_phoenix) %>%
-#   summarise(across(c(award_number, is_document_number, has_doag_pio), ~ paste0(., collapse = "; "))
-#             , transaction_amt = list(transaction_amt)
-#             , sum_sales = sum_(sales)
-#             , `Male Value` = sum_(`Male Value`)
-#             , `Female Value` = sum_(`Female Value`)
-#             , `Male Number` = sum_(`Male Number`)
-#             , `Female Number` = sum_(`Female Number`)
-#             , sum_gender_financing_ratio = ( `Female Value` / `Female Number`) / (`Male Value` / `Male Number`)
-#             , sum_psi = sum_(psi)
-#             , sum_hectares = sum_(hectares)) %>%
-#   filter(if_any(starts_with("sum_"), ~ !is.na(.))) %>% ungroup() %>%
-#   arrange(ro, ou_join, a_code, a_name, year_phoenix, award_number) %>%
-#   group_by(ou_dis, a_code, a_name, year_phoenix) %>%
-#   summarise(sum_transaction_amt = sum_(transaction_amt)
-#             , sum_sales = sum_(sales)
-#             , `Male Value` = sum_(`Male Value`)
-#             , `Female Value` = sum_(`Female Value`)
-#             , `Male Number` = sum_(`Male Number`)
-#             , `Female Number` = sum_(`Female Number`)
-#             , sum_gender_financing_ratio = ( `Female Value` / `Female Number`) / (`Male Value` / `Male Number`)
-#             , sum_psi = sum_(psi)
-#             , sum_hectares = sum_(hectares))
-#
-# googlesheets4::sheet_write(transactions_by_ou
-#                            , "1YSIFJQ3mOfFsKUJsMKaITl86KlhI9GvWx5fbsJDATRI"
-#                            , sheet = "Transactions by OU")
-#
-
+googlesheets4::sheet_write(top5_disbursements
+                           , "13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c"
+                           , sheet = "top5_disbursements")
+googlesheets4::sheet_write(top5_results
+                           , "13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c"
+                           , sheet = "top5_results")

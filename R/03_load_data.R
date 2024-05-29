@@ -15,7 +15,7 @@ library(googlesheets4)
 # EG.3 budget
 # budget <- read_sheet("1xlHsKEhzznJI0ZBH5_9hHhdeXPpamSRD1wc0wtilRIk", sheet = "budget")
 # write_csv(budget, "01_data/budget.csv")
-budget <- read_excel("data/target_setting_data.xlsx"
+budget <- read_sheet("13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c"
                      , sheet = "Final Budget", na = "-") %>%
   pivot_longer(-ou, names_to = "year") %>%
   rename(budget = value) %>%
