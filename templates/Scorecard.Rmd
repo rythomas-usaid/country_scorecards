@@ -1,10 +1,11 @@
 ---
-title: "`r paste0('FTF FY 2023 Performance Scorecard ',paste0(trimws(gsub('USAID ','',gsub('\\(.*$','',params$ou_name )))) )`"
+title: "`r paste0('FTF FY 2023 Performance Scorecard ',paste0(trimws(gsub('USAID ','',gsub('\\(.*$','',params$program )))) )`"
 output: 
   word_document: 
     reference_doc: "~/R_scripts/country_scorecards/country_scorecards/templates/v1scorecard_template.docx"
 params:
-  ou_name: ou_name
+  ou_names: ou_names
+  program: program
   input_dat: input_dat
   extract: extract
   pt_dat: pt_dat
@@ -39,24 +40,25 @@ library(RSQLite)
 library(disR)
 source("../R/05_helpers.R")
 source("../R/02_make_scorecard_plots.R")
-
-n_activities <- params$active_activities_unique %>% filter(ro == ro, ou == ou_name) %>%
+ix <- which(str_detect(params$ou_names, "USAID"))
+usaid_ou <- params$ou_names[ix]
+n_activities <- params$active_activities_unique %>% filter(ou %in% params$ou_names) %>%
       distinct(a_code) %>% arrange(a_code) %>% nrow()
 dna_udns <- c("3.5.1.2.4", "3.6.1.2.4", "3.7.1.2.4", "3.5.2.2.4", "3.6.2.2.4", "3.7.2.2.4")
 other_udns <- c("3.5.1.2.3", "3.6.1.2.3", "3.7.1.2.3", "3.5.2.2.3", "3.6.2.2.3", "3.7.2.2.3")
 finance_sex_dna <- params$extract %>%
-  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn %in% dna_udns) %>%
+  filter(ou %in% params$ou_names & year == 2023 & ic=="EG.3.2-27" & udn %in% dna_udns) %>%
   summarize(dna = sum_(actual))
 finance_sex_mixed <- params$extract %>%
-  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn %in% other_udns) %>%
+  filter(ou %in% params$ou_names & year == 2023 & ic=="EG.3.2-27" & udn %in% other_udns) %>%
   summarize(mixed = sum_(actual))
 total_financing <- params$extract %>%
-  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn == "3") %>%
+  filter(ou %in% params$ou_names & year == 2023 & ic=="EG.3.2-27" & udn == "3") %>%
   summarise(total = sum_(actual)) %>% "["("total")
-ou_dat <- params$pt_dat %>% filter(ou == ou_name) %>% arrange(ro, ou, year, type, name)
+ou_dat <- params$pt_dat %>% filter(ou %in% ou_names) %>% arrange(ro, ou, year, type, name)
 
 section1 <- s1_plot(dat = params$input_dat
-                    , ou_name = params$ou_name
+                    , ou_names = params$ou_names
                     , mddw = params$mddw_dat
                     , ou_dat = ou_dat
                     , n_activities = n_activities
@@ -66,7 +68,7 @@ section1 <- s1_plot(dat = params$input_dat
                     , scores = params$scores)
 ```
 
-This Feed the Future (FTF) Performance Scorecard assesses the `r paste0(trimws(gsub("\\(.*$", "", params$ou_name )))` progress toward FY 2030 Performance Targets.
+This Feed the Future (FTF) Performance Scorecard assesses the `r paste0(trimws(gsub("\\(.*$", "", params$ou_names )))` progress toward FY 2030 Performance Targets.
 
 # Performance Overview
 
@@ -85,7 +87,7 @@ summary_dat <- params$pt_upload %>%
   mutate(type = case_when(type == "actual_norm" ~ "FY23 Actual"
                           , type == "interim_target_norm" ~ "90% of FY23 'On track' Target")
          , name = case_when(name == "PT3: Climate hectares" ~ "PT3: Climate adaptive hectares", .default = name)) %>% 
-  filter(ou == ou_name) %>%
+  filter(ou %in% params$ou_names) %>%
   mutate(name = fct_rev(name), ou_track = case_when(type == "FY23 Actual"~ ou_track)) %>% 
   filter(name != "PT4: Private sector investment")
 
@@ -133,7 +135,7 @@ summary_plot
 
 ### Performance Target (PT) Details
 
-This section shows PT scores for each applicable PT for `r paste0(trimws(gsub("\\(.*$", "", params$ou_name )))`.
+This section shows PT scores for each applicable PT for `r paste0(trimws(gsub("\\(.*$", "", params$ou_names )))`.
 
 ## Performance Target 1: Value of annual sales of producers and firms receiving USG assistance
 
@@ -207,7 +209,7 @@ section1["mddw_plot"]$mddw_plot
 
 ```{r context data, fig.width=6.5, fig.height=3.75, warning=FALSE, message=FALSE}
 plot_df <- params$national_df %>%
-    filter(ou == trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name )))) %>%
+    filter(ou == trimws(gsub("\\(.*$", "", gsub("USAID ", "",  params$program )))) %>%
     mutate(year = as.Date(paste0("01-01-", year), format = "%m-%d-%Y")) %>%
     dplyr::select(ou, year, hunger, poverty, stunting, wasting) %>%
     unique() %>%
@@ -228,7 +230,7 @@ plot_df <- params$national_df %>%
 natl_text <- if(nrow(plot_df) > 0L) {
   paste0("National level data was collected from the [World Bank’s Open Data portal](https://data.worldbank.org/) that measures key indicators at the national level.")
   } else knitr::asis_output(paste0("National context data is not available for "
-         , trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name ))), "."))
+         , params$program, "."))
 ```
 
 `r paste0(natl_text)`
@@ -236,7 +238,7 @@ natl_text <- if(nrow(plot_df) > 0L) {
 ```{r context plot, fig.width=6.5, fig.height=3.75, warning=FALSE, message=FALSE}
 if(nrow(plot_df) > 0L) {
   national_plot(plot_df
-                , trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name ))))
+                , params$program)
 } else NULL
   
 ```
@@ -246,7 +248,7 @@ if(nrow(plot_df) > 0L) {
 The IFPRI Agricultural Transformation Index (ATI) Score is a high level indicator of the status of agricultural market systems in each country.
 
 ```{r ati plot, fig.width=6.3, fig.height=3, warning=FALSE, message=FALSE}
-p_ati <- ati_plot(params$ati, ou_name)
+p_ati <- ati_plot(params$ati, params$program)
 p_ati
 ```
 
@@ -255,14 +257,14 @@ p_ati
 At the Operating Unit level, the Performance Targets are based in part on the FY 2024 budget request. The budget chart below includes EG.3 money only.
 
 ```{r}
-if(ou_name == "Bureau for Resilience and Food Security (RFS)") {
+if(params$program == "Bureau for Resilience and Food Security (RFS)") {
   knitr::asis_output("For the REFS Bureau, this value was divided by two to account for the large proportion of the budget that does not report on Performance Target indicators.")
 }
 ```
 
 ```{r budget plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
 # Budget --------
-# ou_budget <- budget %>% filter(year %in% 2020:2024 & ou == trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name )))) %>%
+# ou_budget <- budget %>% filter(year %in% 2020:2024 & ou == params$program) %>%
 #   mutate(budget = ifelse(ou == "Bureau for Resilience and Food Security (RFS)", budget/2, budget)
 #          , type = ifelse(year > 2024, "653(a) Actual", "Requested")) 
 # budget_hline <- ou_budget %>% filter(year == 2023) %>%
@@ -287,14 +289,9 @@ if(ou_name == "Bureau for Resilience and Food Security (RFS)") {
 #   labs(caption = paste0("* Values are in $1,000s\n**Red dashed line is the budget level used for target setting.", collapse="n"))
 # budget_plot
 
-if(params$ou_name == "Group Target") {
-  # group_target_ous <- filter(params$pt_dat, is_group == TRUE ) %>% distinct(ro, ou)
-  # make_budget_plot(budget = params$budget, ou_name = group_target_ous)
-} else if(params$ou_name == "Group Target") {
-    make_budget_plot(budget = params$budget, ou_name = params$ou_name)
-} else if (params$ou_name == "FTF Initiative") {
-  make_ftf_budget_plot(ftf_budget, ou_name = ou_name)
-}
+
+make_ftf_budget_plot(ftf_budget, ou_name = params$program)
+
 ```
 
 ## Active Portfolio
@@ -303,11 +300,11 @@ The following activities are considered "active" based on their reporting in FY 
 
 ## Top Activities (Award Disbursements and Results)
 
-This section highlights the `r min(n_activities, 5)` activities (out of the total `r n_activities` in the `r ou_name` portfolio) that have the highest level of FY 2023 annual disbursements and highest reported values for the relevant indicators.
+This section highlights the `r min(n_activities, 5)` activities (out of the total `r n_activities` in the `r params$program` program portfolio) that have the highest level of FY 2023 annual disbursements and highest reported values for the relevant indicators.
 
 ```{r}
 t5d <- params$top5_disbursements %>% 
-  filter(ou_dis == ou_name) %>% 
+  filter(ou_dis == usaid_ou) %>% 
   select(-starts_with("ou")) %>% 
   mutate(transaction_amt = scales::label_dollar()(transaction_amt)) %>% 
   select("Award Number" = award_number, a_code, a_name, "FY23 Disbursements" = transaction_amt
@@ -337,7 +334,7 @@ params$top5_results %>%
   select(ou = ou_dis, "Award Number" = award_number, a_code, a_name
          , "Total Disbursements" = transaction_amt, `PT1: Sales` = sales
          , `PT3: Climate adaptive hectares` = hectares, `PT4: PSI` = psi) %>% 
-  filter(ou == ou_name) %>% select(-ou) %>% 
+  filter(ou == usaid_ou) %>% select(-ou) %>% 
   make_human_readable_names() %>% 
   knitr::kable(table.attr = "style='width:8in;'")
 ```
@@ -365,11 +362,10 @@ Include the following two components in each response:
 
 ```{r make OU KIN}
 ou_kin <- kin %>% 
-  filter(trimws(gsub("\\(.*$", "", ou_name )) ==  ou ) 
+  filter(params$program ==  ou ) 
 ou_kin <- if(nrow(ou_kin) > 0L) {
   ou_kin %>% bind_cols(section1["scores"]$scores)
 } else tibble()
-ou_label <-  trimws(gsub("USAID ", "", gsub("\\(.*$", "", ou_name )))
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4a","score"] == "Not on track" }

@@ -1,9 +1,9 @@
 
 library(patchwork)
-s1_plot <- function(dat, ou_name, targets, ou_dat, mddw, n_activities, finance_sex_dna
+s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities, finance_sex_dna
                     , total_financing, finance_sex_mixed, scores = scores
                     , start_year = 2022, out_year = 2024, deviation = .9) {
-  ou_label <- trimws(gsub("USAID ", "", gsub("\\(.*$", "", ou_name )))
+  ou_label <- program
 # deviation = .9
 # dat <- input_dat
 # years <- 2022:2024
@@ -15,23 +15,8 @@ s1_plot <- function(dat, ou_name, targets, ou_dat, mddw, n_activities, finance_s
 
   # SALES  ------------
   if("PT1: Sales" %in% ou_dat$name){
-    sales_actual_to_outyear <- if(ou_name == "Group Target") {
-          sales_(dat) %>%
-            filter( ! ou %in% sales_ous
-                    & !is.na(value)
-                    & ((name == "target" & year == out_year) | (name == "actual" & year == 2023))) %>%
-            group_by(name, year) %>%
-            summarise(ro = "USAID", ou = "Group Target", value = sum_(value), .groups = "drop")
-        } else if(ou_name == "FTF Initiative") {
-          sales_(dat) %>%
-            filter(!is.na(value)
-                    & ((name == "target" & year == out_year) | (name == "actual" & year == 2023))) %>%
-            select(ro, ou, year, name, value) %>%
-            group_by(year, name) %>%
-            summarize(ro = "USAID", ou="FTF Initiative", value = sum_(value))
-          } else  {
       sales_(dat) %>%
-        filter(ou == ou_name
+        filter(ou %in% ou_names
                & !is.na(value)
                & ((name == "target" & year == out_year) | (name == "actual" & year == 2023)))
         }

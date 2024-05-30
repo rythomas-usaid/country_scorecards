@@ -292,9 +292,9 @@ mddw_dat <- mddw %>%
 map_files <- read_csv("data/map_files.csv")
 
 # Auto scorecard -----------------
-for(ou_name in ou_target_countries) {
-  if(ou_name == "International Food Assistance Division (IFA) (USDA/IFA)") ro <- "IFAD" else ro <- "USAID"
-  print(paste0("Working on ... ", ou_name))
+for(program in unique(ftf_programs %>% filter(!is.na(target_program)) %>% select(target_program))) {
+
+  print(paste0("Working on ... ", program))
   scores <- data.frame(
     pt = c("PT1", "PT2", "PT3", "PT4", "PT5")
     , name = c("sales", "financing", "hectares", "psi", "mddw")
@@ -302,19 +302,23 @@ for(ou_name in ou_target_countries) {
     , score = factor(rep("Not applicable", 5)
                      , levels = c("On track", "Not on track", "Not applicable", "Not available"))
   )
-  mapfile <- paste0("data/maps/",map_files$file[map_files$ou == ou_name])
+  mapfile <- paste0("data/maps/", map_files$file[map_files$country == program])
+
 
   tryCatch({
-    output_file <- paste0(gsub("/", "", ou_name), ".docx")
+    output_file <- paste0(gsub("/", "", program), " FTF Performance Scorecard.docx")
+    ou_names <- ftf_programs$ou[ftf_programs$program==program]
+
     # overall
     print(paste0("saving to ", output_file))
     rmarkdown::render(
-      input = if(ou_name %in% c("FTF Initiative", "Group Target")) "templates/Scorecard-basic.rmd" else "templates/Scorecard.Rmd",
+      input = "templates/Scorecard.Rmd",
       output_format = "word_document",
       output_file = output_file,
       output_dir = "output/",
       params = list(
-        ou_name = ou_name,
+        ou_names = ou_names,
+        program = program,
         input_dat = input_dat,
         extract = extract,
         pt_dat = pt_dat,
