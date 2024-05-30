@@ -2,7 +2,7 @@
 title: "`r paste0('FTF FY 2023 Performance Scorecard ', paste0(trimws(gsub('\\(.*$', '', ou_name ))) )`"
 output: 
   word_document: 
-    reference_doc: "~/R_scripts/country_scorecards/country_scorecards/v1scorecard_template.docx"
+    reference_doc: "~/R_scripts/country_scorecards/country_scorecards/templates/v1scorecard_template.docx"
 params:
   ou_name: ou_name
   dat: dat
@@ -35,8 +35,8 @@ library(extrafontdb)
 library(DBI)
 library(RSQLite)
 library(disR)
-source("10_helpers.R")
-source("02_make_scorecard_plots.R")
+source("R/10_helpers.R")
+source("R/02_make_scorecard_plots.R")
 map_files <- read_csv("data/map_files.csv")
 
 dna_udns <- c("3.5.1.2.4", "3.6.1.2.4", "3.7.1.2.4", "3.5.2.2.4", "3.6.2.2.4", "3.7.2.2.4")

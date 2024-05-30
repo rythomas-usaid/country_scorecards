@@ -26,9 +26,9 @@ gs4_auth(
   token = NULL
 )
 
-source("10_helpers.R")
-source("02_make_scorecard_plots.R")
-source("03_load_data.R") # includes relevant phoenix module data
+source("R/05_helpers.R")
+source("R/02_make_scorecard_plots.R")
+source("R/03_load_data.R") # includes relevant phoenix module data
 # source("_phoenix_module.R")
 
 ## Define params -----------
@@ -218,6 +218,7 @@ addtopsi <- tibble(ro =  "USAID", ou = psiNA,  year = 2022, type = "baseline", n
 
     mutate(across(c(baseline, actual, interim_target), ~ . / interim_target, .names = "{.col}_norm")
     , across(-c(ro, ou, name), ~ ifelse(is.finite(.), ., NA))
+    , absolute_difference = actual - interim_target
 
     , ou_track = ifelse(
       ou == "USAID Nigeria (NIGERIA)" & name == "PT1: Sales", "Not Available"
@@ -288,7 +289,7 @@ mddw_dat <- mddw %>%
 # ou_name <- "USAID Dem Rep Congo (DROC)"
 # ou_names <- unique(active_activities_unique$ou)
 
-map_files <- read_csv("../data/map_files.csv")
+map_files <- read_csv("data/map_files.csv")
 
 # Auto scorecard -----------------
 for(ou_name in ou_target_countries) {
@@ -301,17 +302,17 @@ for(ou_name in ou_target_countries) {
     , score = factor(rep("Not applicable", 5)
                      , levels = c("On track", "Not on track", "Not applicable", "Not available"))
   )
-  mapfile <- paste0("../data/maps/",map_files$file[map_files$ou == ou_name])
+  mapfile <- paste0("data/maps/",map_files$file[map_files$ou == ou_name])
 
   tryCatch({
     output_file <- paste0(gsub("/", "", ou_name), ".docx")
     # overall
     print(paste0("saving to ", output_file))
     rmarkdown::render(
-      input = if(ou_name %in% c("FTF Initiative", "Group Target")) "Scorecard-basic.rmd" else "Scorecard.Rmd",
+      input = if(ou_name %in% c("FTF Initiative", "Group Target")) "templates/Scorecard-basic.rmd" else "templates/Scorecard.Rmd",
       output_format = "word_document",
       output_file = output_file,
-      output_dir = "../output/",
+      output_dir = "output/",
       params = list(
         ou_name = ou_name,
         input_dat = input_dat,
@@ -335,44 +336,5 @@ for(ou_name in ou_target_countries) {
   })
   }
 
-# # Manual scorecard -----------------
-#  make_scorecard <- function(ro = "USAID", ou_name) {
-#    scores <- data.frame(
-#      pt = c("PT1", "PT2", "PT3", "PT4", "PT5")
-#      , name = c("sales", "financing", "hectares", "psi", "mddw")
-#      , y = rep(1,5)
-#      , score = factor(rep("Not applicable", 5)
-#                       , levels = c("On track", "Not on track", "Not applicable", "Not available"))
-#    )
-#    mapfile <- paste0("maps/",map_files$file[map_files$ou == ou_name])
-#    # KIN
-#    print(paste0("saving to ", output_file))
-#
-#    rmarkdown::render(
-#      input = "Scorecard.Rmd",
-#      output_format = "word_document",
-#      output_file = output_file,
-#      output_dir = "output",
-#      params = list(
-#        ou_name = ou_name,
-#        input_dat = input_dat,
-#        extract = extract,
-#        ou_dat = ou_dat,
-#        pt_dat = pt_dat,
-#        pt_upload = pt_upload,
-#        active_activities_dat = active_activities_dat,
-#        active_activities_unique = active_activities_unique,
-#        kin = kin,
-#        mddw_dat = mddw_dat,
-#        scores = scores,
-#        national_df = national_df,
-#        ati = ati,
-#        top5_disbursements = top5_disbursements,
-#        top5_results = top5_results,
-#        budget = budget,
-#        mapfile = paste0("maps/",map_files$file[map_files$ou == ou_name])
-#      )
-#    )
-#  }
 
 

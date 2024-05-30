@@ -2,7 +2,7 @@
 title: "`r paste0('FTF FY 2023 Performance Scorecard ',paste0(trimws(gsub('USAID ','',gsub('\\(.*$','',params$ou_name )))) )`"
 output: 
   word_document: 
-    reference_doc: "~/R_scripts/country_scorecards/country_scorecards/v1scorecard_template.docx"
+    reference_doc: "~/R_scripts/country_scorecards/country_scorecards/templates/v1scorecard_template.docx"
 params:
   ou_name: ou_name
   input_dat: input_dat
@@ -37,8 +37,8 @@ library(extrafontdb)
 library(DBI)
 library(RSQLite)
 library(disR)
-source("10_helpers.R")
-source("02_make_scorecard_plots.R")
+source("../R/05_helpers.R")
+source("../R/02_make_scorecard_plots.R")
 
 n_activities <- params$active_activities_unique %>% filter(ro == ro, ou == ou_name) %>%
       distinct(a_code) %>% arrange(a_code) %>% nrow()
@@ -343,7 +343,8 @@ params$top5_results %>%
 ```
 
 ```{r}
-knitr::include_graphics(params$mapfile)
+knitr::include_graphics(paste0("../", params$mapfile))
+
 ```
 
 ### Appendix 1: Response to "Not on track" Performance Targets
