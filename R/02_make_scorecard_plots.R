@@ -15,13 +15,23 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
 
   # SALES  ------------
   if("PT1: Sales" %in% ou_dat$name){
+    sales_actual_to_outyear <- if(program == "Group Target"){
+     sales_(dat) %>%
+        filter( ! ou %in% sales_ous
+                & !is.na(value)
+                & ((name == "target" & year == out_year) | (name == "actual" & year == 2023))) %>%
+        group_by(name, year) %>%
+        summarise(program = program, value = sum_(value), .groups = "drop")
+    } else if(program == "FTF Initiative") {
       sales_(dat) %>%
-        filter(ou %in% ou_names
-               & !is.na(value)
-               & ((name == "target" & year == out_year) | (name == "actual" & year == 2023)))
-        }
+        filter(!is.na(value)
+               & ((name == "target" & year == out_year) | (name == "actual" & year == 2023))) %>%
+        select(program, year, name, value) %>%
+        group_by(year, name) %>%
+        summarize(ro = NA, program="FTF Initiative", value = sum_(value))
+    }
     sales_actual_to_outyear <- sales_actual_to_outyear %>%
-      select(ro, ou, type = name, year, value) %>%
+      select(program, type = name, year, value) %>%
       mutate(name = "PT1: Sales"
              , type = new_target_name)
     sales_target <- ou_dat %>%
@@ -70,21 +80,21 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
 
   # SALES
   ## TEXT -----------------
-  sales_text <- if (ou_name == "Group Target") {
+  sales_text <- if (program == "Group Target") {
     dat %>%
       filter(year %in% 2023:2024 & ro == ro & !ou %in% sales_ous) %>%
-      select(ro, ou, ic, udn, year, a_code, a_name, d_name, actual, target
+      select(program, ic, udn, year, a_code, a_name, d_name, actual, target
              , deviation_percentage, deviation_narrative) %>%
       filter(ic == "EG.3.2-26")
-  } else if (ou_name == "FTF Initiative") {
+  } else if (program == "FTF Initiative") {
     dat %>% filter(year %in% 2023:2024 ) %>%
-      select(ro, ou, ic, udn, year, a_code, a_name, d_name, actual, target
+      select(program, ic, udn, year, a_code, a_name, d_name, actual, target
              , deviation_percentage, deviation_narrative) %>%
       filter(ic == "EG.3.2-26")
   } else  {
     dat %>%
     filter(year %in% 2023:2024 & ro == ro & ou == ou_name) %>%
-    select(ro, ou, ic, udn, year, a_code, a_name, d_name, actual, target
+    select(program, ic, udn, year, a_code, a_name, d_name, actual, target
            , deviation_percentage, deviation_narrative) %>%
     filter(ic == "EG.3.2-26")
   }
@@ -98,17 +108,19 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
   sales_txt <- paste0("In FY 2023, ", ou_label, " had "
                       , sales_n_aligned," activities that aligned the 'Value of annual sales from producers and firms receiving USG assistance' (EG.3.2-26), and "
                       , sales_n_contributing, " contributed to the sales total of "
-                      , scales::dollar_format()(round(sales_total, -4)), ".\\\n\\\n")
-  if(!is.na(sales_fy24target) & ! is.null(sales_plot_params$trajectory.y[sales_plot_params$trajectory.x==2024])) {
-    if(sales_plot_params["title"] == "Not on track"  & sales_fy24target > sales_plot_params$trajectory.y[sales_plot_params$trajectory.x==2024]) {
+                      , scales::dollar_format()(round(sales_total, -4)), ".")
+  if(!is.na(sales_fy24target) &
+     !is.null(sales_plot_params$trajectory.y[sales_plot_params$trajectory.x==2024])) {
+    if(sales_plot_params["title"] == "Not on track"
+       & sales_fy24target > sales_plot_params$trajectory.y[sales_plot_params$trajectory.x==2024]) {
     sales_txt <- paste0(sales_txt
-                        , "Note that while ", ou_label
+                        , "///nNote that while ", ou_label
                         ," was 'Not on track' in FY23, it expects an increase in FY24. "
                         , "Such an increase would make it 'On track' for this performance indicator.")
     } else if(sales_plot_params["title"] == "On track"
               & sales_fy24target < sales_plot_params$trajectory.y[sales_plot_params$trajectory.x==2024]) {
       sales_txt <- paste0(sales_txt
-                          , "Note that while ", ou_label
+                          , "///nNote that while ", ou_label
                           ," was 'On track' in FY23, it expects a substantial decrease in FY24. "
                           , "Such an increase would make it 'Not on track' for this performance indicator.")
     }
@@ -140,17 +152,17 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
   }
 
   # FINANCING -------------
-  if(ou_name == "Group Target") {
+  if(program == "Group Target") {
     gf_actual_to_outyear <- dat %>%
       filter(! ou %in% gf_ous) %>%
       gender_financing_(level = "initiative") %>%
       filter(!is.na(value)
              & ((name == "target" & year == out_year) |
                   (name == "actual" & year == 2023))) %>%
-      mutate(ro = "USAID", ou = "Group Target", .before = everything()) %>%
+      mutate(program = "Group Target", .before = everything()) %>%
       rename(type = name) %>% select(-c(a_codes)) %>%
       mutate(name = "PT2: Gender financing ratio", type = new_target_name) %>%
-      select(ro, ou, year, name, type, value)
+      select(program, year, name, type, value)
     gf_target <- ou_dat %>%
       filter(name == "PT2: Gender financing ratio" & (type == "baseline" | type == "performance target")) %>%
       mutate(type = pt_label
@@ -169,15 +181,15 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
                   mutate(type = "FY23 Reported Value")) %>%
       rename(`Value Type` = type, "PT2: Gender financing ratio" = value)
 
-    } else if(ou_name == "FTF Initiative" ) {
+    } else if(program == "FTF Initiative" ) {
     gf_actual_to_outyear <- gender_financing_(dat, level = "initiative") %>%
       filter(!is.na(value)
              & ((name == "target" & year == out_year) |
                   (name == "actual" & year == 2023))) %>%
-      mutate(ro = "USAID", ou = "FTF Initiative", .before = everything()) %>%
+      mutate(program ="FTF Initiative", .before = everything()) %>%
         rename(type = name) %>% select(-c(a_codes)) %>%
         mutate(name = "PT2: Gender financing ratio", type = new_target_name) %>%
-        select(ro, ou, year, name, type, value)
+        select(program, year, name, type, value)
     gf_target <- ou_dat %>%
       filter(name == "PT2: Gender financing ratio" & (type == "baseline" | type == "performance target")) %>%
       mutate(type = pt_label
@@ -203,7 +215,7 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
                 (name == "actual" & year == 2023)))  %>%
     rename(type = name) %>% select(-c(a_codes)) %>%
     mutate(name = "PT2: Gender financing ratio", type = new_target_name) %>%
-    select(ro, ou, year, name, type, value)
+    select(program, year, name, type, value)
   gf_target <- ou_dat %>%
     filter(name == "PT2: Gender financing ratio" & (type == "baseline" | type == "performance target")) %>%
     mutate(type = pt_label
@@ -263,22 +275,22 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
   }
 
   ## TEXT ---------------
-  gf_text <- if(ou_name == "Group Target") {
+  gf_text <- if(program == "Group Target") {
     gender_financing_(dat, level="im") %>%
       filter(year %in% 2023 & ro == ro & ! ou %in% gf_ous & name =="actual") %>%
-      select(ro, ou, year, a_code, a_name, name, `Male Value`, `Female Value`
+      select(program, year, a_code, a_name, name, `Male Value`, `Female Value`
              , `Female Per Person`, `Male Per Person`) %>%
       mutate(finance_gap = `Female Per Person` / `Male Per Person`)
-    } else if(ou_name == "FTF Initiative"){
+    } else if(program == "FTF Initiative"){
       gender_financing_(dat, level="im") %>%
         filter(year %in% 2023 & name =="actual") %>%
-        select(ro, ou, year, a_code, a_name, name, `Male Value`, `Female Value`
+        select(program, year, a_code, a_name, name, `Male Value`, `Female Value`
                , `Female Per Person`, `Male Per Person`) %>%
         mutate(finance_gap = `Female Per Person` / `Male Per Person`)
     } else  {
     gender_financing_(dat, level="im") %>%
         filter(year %in% 2023 & ro == ro & ou == ou_name & name =="actual") %>%
-        select(ro, ou, year, a_code, a_name, name, `Male Value`, `Female Value`
+        select(program, year, a_code, a_name, name, `Male Value`, `Female Value`
                , `Female Per Person`, `Male Per Person`) %>%
         mutate(finance_gap = `Female Per Person` / `Male Per Person`)
   }
@@ -323,7 +335,7 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
 
   # Hectares -------------------
   if("PT3: Climate hectares" %in% ou_dat$name) {
-    ht_actual_to_outyear <- if(ou_name == "Group Target") {
+    ht_actual_to_outyear <- if(program == "Group Target") {
       hectares_(dat) %>%
         filter(!ou %in% ht_ous
                # & !is.na(value)
@@ -333,7 +345,7 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
         rename(type = name) %>% select(-c(ic, a_codes)) %>%
         mutate(name = "PT3: Climate hectares", type = new_target_name) %>%
         group_by(year, type, name) %>% summarize(value = sum_(value))
-      } else if(ou_name == "FTF Initiative") {
+      } else if(program == "FTF Initiative") {
         hectares_(dat) %>%
           filter(((name == "target" & year == out_year) |
                       (name == "actual" & year == 2023)))  %>%
@@ -395,20 +407,20 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
       theme_void()
 
     ## TEXT ----------------
-    ht_text <- if(ou_name == "Group Target") {
+    ht_text <- if(program == "Group Target") {
       dat %>%
         filter(year == 2023 & ro == ro & !ou %in% ht_ous) %>%
-        select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
+        select(program, ic, udn, year,a_code, a_name, d_name, actual, target
                , deviation_percentage, deviation_narrative)
-    } else if (ou_name == "FTF Initiative") {
+    } else if (program == "FTF Initiative") {
       dat %>%
         filter(year == 2023) %>%
-        select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
+        select(program, ic, udn, year,a_code, a_name, d_name, actual, target
                , deviation_percentage, deviation_narrative)
     } else {
       dat %>%
         filter(year == 2023 & ro == ro & ou == ou_name) %>%
-        select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
+        select(program, ic, udn, year,a_code, a_name, d_name, actual, target
                , deviation_percentage, deviation_narrative)
       }
     ht_text <- filter(ht_text, ic == "EG.3.2-25")
@@ -439,7 +451,7 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
   }
 
   # PSI -------------
-  if(ou_name == "Group Target") {
+  if(program == "Group Target") {
     psi_actual_to_outyear <-  dat %>% filter(!ou %in% psi_ous) %>%
       psi_(level = "ou") %>%
       mutate(name = str_remove(name, "_3y")) %>%
@@ -462,9 +474,9 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
     ## PLOT -----------
     psi_plot_dat <- bind_rows(psi_actual_to_outyear, psi_target)
 
-    } else if(ou_name == "FTF Initiative") {
+    } else if(program == "FTF Initiative") {
     psi_actual_to_outyear <-  psi_(dat, level = "initiative") %>%
-      mutate(ro = "USAID", ou = "FTF Initiative", .before=everything()) %>%
+      mutate(program ="FTF Initiative", .before=everything()) %>%
       select(-c(ic, a_codes)) %>%
       filter(!is.na(value)
              & ((name == "target" & year == out_year) |
@@ -551,21 +563,21 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
       guides(color=guide_legend(nrow=3, byrow=TRUE), linetype=guide_legend(nrow=2, byrow=TRUE)) +
       labs(caption = "*For this PT, the baseline is the average of FY 2020 to FY 2022.\nAll values are three year averages.")
   ## TEXT ----------------
-  psi_text <- if(ou_name == "FTF Initiative") {
+  psi_text <- if(program == "FTF Initiative") {
     dat %>%
       filter(year == 2023) %>%
-      select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
+      select(program, ic, udn, year,a_code, a_name, d_name, actual, target
              , deviation_percentage, deviation_narrative)
-  } else if(ou_name == "Group Target") {
+  } else if(program == "Group Target") {
     dat %>%
       filter(year == 2023 & ro == ro & ! ou %in% psi_ous) %>%
-      select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
+      select(program, ic, udn, year,a_code, a_name, d_name, actual, target
              , deviation_percentage, deviation_narrative)
 
   } else {
     dat %>%
       filter(year == 2023 & ro == ro & ou == ou_name) %>%
-      select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
+      select(program, ic, udn, year,a_code, a_name, d_name, actual, target
              , deviation_percentage, deviation_narrative)
   }
     psi_text <- filter(psi_text, ic %in% c("EG.3.1-14", "EG.3.1-15"))
@@ -717,7 +729,7 @@ s1_plot <- function(dat, program, ou_names, targets, ou_dat, mddw, n_activities,
     mddw_text <- mddw_text
     mddw_txt <- mddw_txt
     scores$score[scores$pt == "PT5"] <- as.factor(mddw_plot_params["title"])
-  } else if(ou_name == "USAID Mali (MALI)") {
+  } else if(program == "USAID Mali (MALI)") {
     mddw_datS <- mddw_dat %>%
       filter(ou == ou_name & name == "PT5: MDD-W (South)")
 

@@ -33,6 +33,7 @@ source("R/03_load_data.R") # includes relevant phoenix module data
 
 ## Define params -----------
 ### Sales ------------------
+ou_target_countries <- unique(ftf_programs$ou[ftf_programs$target_program==TRUE])
 sales <- input_dat %>%
   filter(year %in% 2022:2023 & ou %in% sales_ous) %>%
   sales_() %>% filter(name == "actual") %>%
@@ -292,7 +293,7 @@ mddw_dat <- mddw %>%
 map_files <- read_csv("data/map_files.csv")
 
 # Auto scorecard -----------------
-for(program in unique(ftf_programs %>% filter(!is.na(target_program)) %>% select(target_program))) {
+for(program in unique(c(ftf_programs$program[ftf_programs==TRUE], "Group Target"))) {
 
   print(paste0("Working on ... ", program))
   scores <- data.frame(

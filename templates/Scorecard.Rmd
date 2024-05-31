@@ -59,6 +59,7 @@ ou_dat <- params$pt_dat %>% filter(ou %in% ou_names) %>% arrange(ro, ou, year, t
 
 section1 <- s1_plot(dat = params$input_dat
                     , ou_names = params$ou_names
+                    , program = params$program
                     , mddw = params$mddw_dat
                     , ou_dat = ou_dat
                     , n_activities = n_activities
