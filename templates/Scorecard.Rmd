@@ -55,7 +55,16 @@ total_financing <- params$extract %>%
   summarise(total = sum_(actual)) %>% "["("total")
 ou_dat <- params$pt_dat %>% filter(ou == ou_name) %>% arrange(ro, ou, year, type, name)
 
+scores <- data.frame(
+    pt = c("PT1", "PT2", "PT3", "PT4", "PT5")
+    , name = c("sales", "financing", "hectares", "psi", "mddw")
+    , y = rep(1,5)
+    , score = factor(rep("Not applicable", 5)
+                     , levels = c("On track", "Not on track", "Not applicable", "Not available"))
+  )
+
 section1 <- s1_plot(dat = params$input_dat
+                    , active_activities_dat = params$active_activities_dat
                     , ou_name = params$ou_name
                     , mddw = params$mddw_dat
                     , ou_dat = ou_dat
