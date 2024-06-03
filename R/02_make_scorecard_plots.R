@@ -1,6 +1,6 @@
 
 library(patchwork)
-s1_plot <- function(dat, ou_name, targets, ou_dat, mddw, n_activities, finance_sex_dna
+s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, n_activities, finance_sex_dna
                     , total_financing, finance_sex_mixed, scores = scores
                     , start_year = 2022, out_year = 2024, deviation = .9) {
   ou_label <- trimws(gsub("USAID ", "", gsub("\\(.*$", "", ou_name )))
@@ -411,32 +411,38 @@ s1_plot <- function(dat, ou_name, targets, ou_dat, mddw, n_activities, finance_s
 
     ## TEXT ----------------
     ht_text <- if(ou_name == "Group Target") {
-      dat %>%
+      active_activities_dat %>%
         filter(year == 2023 & ro == ro & !ou %in% ht_ous) %>%
         select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
                , deviation_percentage, deviation_narrative)
     } else if (ou_name == "FTF Initiative") {
-      dat %>%
+      active_activities_dat %>%
         filter(year == 2023) %>%
         select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
                , deviation_percentage, deviation_narrative)
     } else {
-      dat %>%
+      active_activities_dat %>%
         filter(year == 2023 & ro == ro & ou == ou_name) %>%
         select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
                , deviation_percentage, deviation_narrative)
       }
-    ht_text <- filter(ht_text, ic == "EG.3.2-25")
+    ht_text <- ht_text %>%  filter(ic == "EG.3.2-25")
 
-    n_aligned <- length(unique(ht_text$a_code))
-    n_contributing <- sum(!is.na(ht_text$actual))
+    cultivated_hectares_aligned <- ht_text %>%
+        filter(year == 2023 & str_starts(udn, "3.1|3.2")) %>%
+        select(ro, ou, ic, udn, year, a_code, a_name, d_name, actual, target
+               , deviation_percentage, deviation_narrative) %>%
+      distinct(a_code) %>% nrow()
+    n_contributing <-  ht_text %>%
+      filter(year == 2023 & udn %in% c("3.1.3.12", "3.2.3.12") & actual > 0) %>%
+      distinct(a_code) %>% nrow()
     # Write Text
     ht_txt <- paste0(
       "In FY 2023, ", ou_label
-      , " accounted for ", n_activities, " activities that aligned the "
-      ,"indicator for hectares under improved management practices (EG.3.2-25). "
-      , "Of those activities, ", n_contributing, " reported on the '"
-      , unique(ht_text$d_name), "' disaggregate and contributed to the OU total for this PT.")
+      , " accounted for ", cultivated_hectares_aligned, " activities that aligned the "
+      ,"indicator for hectares of cultivated land under improved management practices (EG.3.2-25). "
+      , "Of those activities, ", n_contributing, " reported on the "
+      , "'Climate adaptation/climate risk management' disaggregate and contributed to the OU total for this PT.")
 
   } else if (! "PT3: Climate hectares" %in% ou_dat$name) {
     hectares_plot <- ggplot() +
