@@ -35,61 +35,26 @@ library(extrafontdb)
 library(DBI)
 library(RSQLite)
 library(disR)
-source("R/10_helpers.R")
-source("R/02_make_scorecard_plots.R")
-map_files <- read_csv("data/map_files.csv")
+source("../R/05_helpers.R")
+source("../R/02_make_scorecard_plots.R")
 
+n_activities <- active_activities_unique %>% filter(ro == ro, ou == ou_name) %>%
+      distinct(a_code) %>% arrange(a_code) %>% nrow()
 dna_udns <- c("3.5.1.2.4", "3.6.1.2.4", "3.7.1.2.4", "3.5.2.2.4", "3.6.2.2.4", "3.7.2.2.4")
 other_udns <- c("3.5.1.2.3", "3.6.1.2.3", "3.7.1.2.3", "3.5.2.2.3", "3.6.2.2.3", "3.7.2.2.3")
-if(ou_name == "Group Target") {
-  n_activities <- active_activities_unique %>% 
-    filter(!ou %in% ou_target_countries) %>%
-      distinct(a_code) %>% arrange(a_code) %>% nrow()
-  finance_sex_dna <- extract %>%
-    filter(!ou %in% ou_target_countries & year == 2023 
-           & ic=="EG.3.2-27" & udn %in% dna_udns) %>%
-    summarize(dna = sum_(actual))
-  finance_sex_mixed <- extract %>%
-    filter(!ou %in% ou_target_countries & year == 2023 
-           & ic=="EG.3.2-27" & udn %in% other_udns) %>%
-    summarize(mixed = sum_(actual))
-  total_financing <- extract %>%
-    filter(!ou %in% ou_target_countries & year == 2023 
-           & ic=="EG.3.2-27" & udn == "3") %>%
-    summarise(total = sum_(actual)) %>% "["("total")
-} else if(ou_name == "FTF Initiative") {
-    n_activities <- active_activities_unique %>% 
-      distinct(a_code) %>% arrange(a_code) %>% nrow()
-  finance_sex_dna <- extract %>%
-    filter(year == 2023 
-           & ic=="EG.3.2-27" & udn %in% dna_udns) %>%
-    summarize(dna = sum_(actual))
-  finance_sex_mixed <- extract %>%
-    filter(year == 2023 
-           & ic=="EG.3.2-27" & udn %in% other_udns) %>%
-    summarize(mixed = sum_(actual))
-  total_financing <- extract %>%
-    filter(year == 2023 
-           & ic=="EG.3.2-27" & udn == "3") %>%
-    summarise(total = sum_(actual)) %>% "["("total")
-} else {
-  n_activities <- active_activities_unique %>% filter(ro == ro, ou == ou_name) %>%
-      distinct(a_code) %>% arrange(a_code) %>% nrow()
-  finance_sex_dna <- extract %>%
+finance_sex_dna <- extract %>%
   filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn %in% dna_udns) %>%
   summarize(dna = sum_(actual))
-  finance_sex_mixed <- extract %>%
-    filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn %in% other_udns) %>%
-    summarize(mixed = sum_(actual))
-  total_financing <- extract %>%
-    filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn == "3") %>%
-    summarise(total = sum_(actual)) %>% "["("total")
-} 
+finance_sex_mixed <- extract %>%
+  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn %in% other_udns) %>%
+  summarize(mixed = sum_(actual))
+total_financing <- extract %>%
+  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn == "3") %>%
+  summarise(total = sum_(actual)) %>% "["("total")
 ou_dat <- pt_dat %>% filter(ou == ou_name) %>% arrange(ro, ou, year, type, name)
 
 section1 <- s1_plot(dat = input_dat
                     , ou_name = ou_name
-                    # , targets = targets
                     , mddw = mddw_dat
                     , ou_dat = ou_dat
                     , n_activities = n_activities
@@ -119,7 +84,8 @@ summary_dat <- pt_upload %>%
                           , type == "interim_target_norm" ~ "90% of FY23 'On track' Target")
          , name = case_when(name == "PT3: Climate hectares" ~ "PT3: Climate adaptive hectares", .default = name)) %>% 
   filter(ou == ou_name) %>%
-  mutate(name = fct_rev(name), ou_track = case_when(type == "FY23 Actual"~ ou_track)) 
+  mutate(name = fct_rev(name), ou_track = case_when(type == "FY23 Actual"~ ou_track)) %>% 
+  filter(name != "PT4: Private sector investment")
 
 summary_plot <- summary_dat %>%
   mutate(value = case_when(type == "90% of FY23 'On track' Target" ~ value *0.9, .default = value)
@@ -174,10 +140,8 @@ section1["sales_text"]$sales_text
 #scales::dollar_format()(this_year$value)
 ```
 
-```{r sales plot, fig.width=6.5, fig.height=5, warning=FALSE, message=FALSE}
-
+```{r sales plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
 section1["sales_plot"]$sales_plot
-
 ```
 
 `r paste(section1["sales_txt"]$sales_txt)`
@@ -213,7 +177,7 @@ section1["hectares_plot"]$hectares_plot
 section1["psi_text"]$psi_text
 ```
 
-```{r PSI details, fig.width=7.5, fig.height=6, warning=FALSE, message=FALSE}
+```{r PSI details, fig.width=7.5, fig.height=4.5, warning=FALSE, message=FALSE}
 section1["psi_plot"]$psi_plot
 ```
 
@@ -241,9 +205,7 @@ section1["mddw_plot"]$mddw_plot
 
 ```{r context data, fig.width=6.5, fig.height=3.75, warning=FALSE, message=FALSE}
 plot_df <- national_df %>%
-    filter(ou == trimws(gsub("\\(.*$", "",
-                             gsub("USAID ", ""
-                                  ,  gsub("Program ", "",  ou_name ) )))) %>%
+    filter(ou == trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name )))) %>%
     mutate(year = as.Date(paste0("01-01-", year), format = "%m-%d-%Y")) %>%
     dplyr::select(ou, year, hunger, poverty, stunting, wasting) %>%
     unique() %>%
@@ -254,7 +216,7 @@ plot_df <- national_df %>%
                             name == "poverty" ~ "Poverty (%)",
                             name == "stunting" ~ "Stunting (%)",
                             name == "wasting" ~ "Wasting (%)")) %>%
-   mutate(txt = case_when(name == "Food Insecurity (%)" ~ "Prevalence of moderate or severe food insecurity in the population (%)"
+  mutate(txt = case_when(name == "Food Insecurity (%)" ~ "Prevalence of moderate or severe food insecurity in the population (%)"
                          , name == "Poverty (%)" ~ "Poverty headcount ratio at $2.15 a day (2017 PPP) (% of population)"
                          , name == "Wasting (%)" ~ "Prevalence of wasting, weight for height (% of children under 5)"
                          , name == "Stunting (%)" ~ "Prevalence of stunting, height for age (% of children under 5)")) %>% 
@@ -262,9 +224,9 @@ plot_df <- national_df %>%
     drop_na() %>% ungroup()
 
 natl_text <- if(nrow(plot_df) > 0L) {
-  paste0("National level data was collected from the [World Bank’s Open Data portal](https://data.worldbank.org/) that measures key indicators at the national level. ")
-  } else paste0("National context data is not available for "
-         , trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name ))), ".")
+  paste0("National level data was collected from the [World Bank’s Open Data portal](https://data.worldbank.org/) that measures key indicators at the national level.")
+  } else knitr::asis_output(paste0("National context data is not available for "
+         , trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name ))), "."))
 ```
 
 `r paste0(natl_text)`
@@ -279,7 +241,7 @@ if(nrow(plot_df) > 0L) {
 
 ## Agricultural Transformation Index Score
 
-The [IFPRI Agricultural Transformation Index (ATI)](https://agrilinks.org/events/drivers-agrifood-system-transformation-lessons-feed-future-country-studies) Score is a high level indicator of the status of agricultural market systems in each country.
+The IFPRI Agricultural Transformation Index (ATI) Score is a high level indicator of the status of agricultural market systems in each country.
 
 ```{r ati plot, fig.width=6.3, fig.height=3, warning=FALSE, message=FALSE}
 p_ati <- ati_plot(ati, ou_name)
@@ -288,7 +250,7 @@ p_ati
 
 ## Budget Trend
 
-At the Operating Unit level, the Performance Targets are based in part on the FY 2024 budget request. The budget chart below includes EG.3 monies only.
+At the Operating Unit level, the Performance Targets are based in part on the FY 2024 budget request. The budget chart below includes EG.3 money only.
 
 ```{r}
 if(ou_name == "Bureau for Resilience and Food Security (RFS)") {
@@ -296,75 +258,53 @@ if(ou_name == "Bureau for Resilience and Food Security (RFS)") {
 }
 ```
 
-```{r budget plot, fig.width=6.5, fig.height=5, warning=FALSE, message=FALSE}
+```{r budget plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
 # Budget --------
-make_budget_plot(budget = budget, ou_name = ou_name)
-make_budget_plot(budget = budget, ou_name = ou_target_countries)
+# ou_budget <- budget %>% filter(year %in% 2020:2024 & ou == trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name )))) %>%
+#   mutate(budget = ifelse(ou == "Bureau for Resilience and Food Security (RFS)", budget/2, budget)
+#          , type = ifelse(year > 2024, "653(a) Actual", "Requested")) 
+# budget_hline <- ou_budget %>% filter(year == 2023) %>%
+#   select(budget) %>% as.numeric()
+# # # ----------- Prep data
+# budget_plot <- ou_budget  %>%
+#   rename(`Fiscal Year` = year, `EG3 Budget (000)` = budget) %>%
+#   # ------------ ggplot
+#   ggplot(aes(x = `Fiscal Year`, y = `EG3 Budget (000)`, linetype = type)) +
+#   geom_point(size = 2.3) + geom_line(linewidth = 1, linetype = 4) +
+#   geom_label_repel(aes(label = scales::dollar_format()(`EG3 Budget (000)`)), nudge_y = 100) +
+# 
+#   geom_hline(color = "#BA0C2F", yintercept = budget_hline, linewidth = 1, linetype = 2) +
+#   # ------------ Set themes
+#   # guides(color = guide_legend(position = "inside")) +
+#   usaid_plot() + #common_theme() + 
+#   theme(legend.position="bottom", plot.caption = element_text(size = 12) ) +
+#   scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
+#   ylab("") + xlab("") + 
+#   # ggtitle(label = "EG3 Budget", subtitle = "Horizontal line is baseline") +
+#   # labs(caption = "*REFS' targets were based on *half* of the FY 2023 budget request.")
+#   labs(caption = paste0("* Values are in $1,000s\n**Red dashed line is the budget level used for target setting.", collapse="n"))
+# budget_plot
 
-make_ftf_budget_plot(budget = ftf_budget, ou_name = ou_name)
-
-ou_budget <-   budget %>% filter(year %in% 2020:2024 & ! ou %in% ou_target_countries) %>%
-        mutate(budget = ifelse(ou == "Bureau for Resilience and Food Security (RFS)", budget/2,
-                               ifelse(budget == 0, NA, budget)))
-
-ou_budget %>% distinct(year, ou
-                       )
-  budget_hline <- ou_budget %>% slice_max(year, n=1) %>%
-    select(budget) %>% summarize(budget = sum_(budget)) %>%  as.numeric()
-  # # ----------- Prep data
-  budget_plot <- ou_budget  %>%
-    group_by(type, year) %>% summarize(budget = sum_(budget)) %>% 
-    rename(`Fiscal Year` = year, `EG3 Budget (000)` = budget) %>%
-    mutate(type = fct_relevel(type, c("Ukraine Supplemental","653(a) Control"))) %>%
-    # ------------ ggplot
-    ggplot(aes(x = paste0("FY ",`Fiscal Year`), y = `EG3 Budget (000)`, fill = type)) +
-    geom_bar(stat = "identity") +
-    geom_label(aes(label = scales::dollar_format()(`EG3 Budget (000)`))
-               , color = "#FFFFFF", fontface = "bold", position = position_stack(vjust = 0.5)
-               , show.legend = FALSE) +
-    geom_label_repel(aes(label = paste0("Baseline: ", scales::dollar_format()(budget_hline)))
-                     , x = "FY 2023", y = budget_hline
-                   , nudge_y = 1, show.legend = FALSE) +
-    geom_hline(color = "#BA0C2F", yintercept = budget_hline
-               , linewidth = 1, linetype = 2) +
-
-    # ------------ Set themes
-    # guides(color = guide_legend(position = "inside")) +
-    common_theme() +
-    theme(legend.position="bottom", plot.title = element_text(size = 16)) +
-    scale_fill_manual(values = budget_fills, breaks = c("653(a) Control", "Ukraine Supplemental", "Request")) +
-    scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
-    scale_x_discrete(expand = expansion(mult = .25)) +
-    ylab("") + xlab("") +
-    ggtitle(label = "EG.3 Budget Trend ($000s)"
-            , subtitle = "Horizontal line is the FY 2024 baseline that was used to make OU-level targets")
+if(ou_name == "Group Target") {
+  # group_target_ous <- filter(pt_dat, is_group == TRUE ) %>% distinct(ro, ou)
+  # make_budget_plot(budget = budget, ou_name = group_target_ous)
+} else if(ou_name == "Group Target") {
+    make_budget_plot(budget = budget, ou_name = ou_name)
+} else if (ou_name == "FTF Initiative") {
+  make_ftf_budget_plot(ftf_budget, ou_name = ou_name)
+}
 ```
 
 ## Active Portfolio
 
-The following tables show the top activities by their annual disbursements in FY 2023. Note that disbursements are only included if there are linked activities in both the Phoenix and DIS databases. Activities are considered "active" based on their reporting in FY 2023 and expected FY 2024 reporting. The Analytics, Data and Learning Division defines an "active" activity as one that reported targets, actuals, or deviation narratives for the current year (FY 2023), or the next out year targets (i.e. FY 2024).
+The following activities are considered "active" based on their reporting in FY 2023 and expected FY 2024 reporting. The Analytics, Data and Learning Division defines an "active" activity as one that reported targets, actuals, or deviation narratives for the current year (FY 2023), or the next out year targets (i.e. FY 2024).
 
 ## Top Activities (Award Disbursements and Results)
 
-This section highlights some activities in the `r ou_name` portfolio that have the highest level of disbursements and high reporting values for the relevant indicators. The table below shows the top (up to) five activities by the total transaction amount for disbursements. The columns to the right indicate if these activities are reporting on relevant PT indicators.
+This section highlights the `r min(n_activities, 5)` activities (out of the total `r n_activities` in the `r ou_name` portfolio) that have the highest level of FY 2023 annual disbursements and highest reported values for the relevant indicators.
 
 ```{r}
-# active_activities_dat %>%
-#   filter(ou == ou_name) %>% 
-#   group_by(tec_amount) %>% 
-#   slice_max(n = 5, order_by = tec_amount) %>% #To uncomment this, remove ic from the below grouping.
-#   group_by(a_name, a_end, m_office) %>% 
-#   summarize("TEC amount" = max(tec_amount), .groups = "drop"
-#             , PT1 = ifelse("EG.3.2-26" %in% unique(ic),  "X" , "-")
-#             , PT2 = ifelse("EG.3.2-27" %in% unique(ic),  "X" , "-")
-#             , PT3 = ifelse("EG.3.2-25" %in% unique(ic),  "X" , "-")
-#             , PT4  = ifelse("EG.3.1.15" %in% unique(ic),  "X" , "-")) %>%  
-#   arrange(desc(`TEC amount`)) %>%  slice_max(order_by = `TEC amount`, n = 6, with_ties = TRUE) %>% 
-#   mutate(`TEC amount` = scales::dollar_format()(`TEC amount`)) %>% 
-#   disR::make_human_readable_names() %>% rename(`Managing Office` = m_office) %>% 
-#   knitr::kable()
-
-top5_disbursements %>% 
+t5d <- top5_disbursements %>% 
   filter(ou_dis == ou_name) %>% 
   select(-starts_with("ou")) %>% 
   mutate(transaction_amt = scales::label_dollar()(transaction_amt)) %>% 
@@ -374,34 +314,40 @@ top5_disbursements %>%
   mutate( PT1 = ifelse(!is.na(PT1),  "X" , "-")
          , PT2 = ifelse(!is.na(PT2),  "X" , "-")
          , PT3 = ifelse(!is.na(PT3),  "X" , "-")
-         , PT4  = ifelse(!is.na(PT4),  "X" , "-")) %>% 
-  knitr::kable(table.attr = "style='width:8in;'") 
+         , PT4  = ifelse(!is.na(PT4),  "X" , "-"))
+
+if(nrow(t5d) > 1L) {
+  knitr::asis_output(paste0("The first table below shows activities with the highest total transaction amounts. The columns to the right indicate if these activities are reporting on relevant PT indicators."))
+} 
+
+if(nrow(t5d) > 1L) {
+  knitr::kable(t5d, table.attr = "style='width:8in;'")
+} else knitr::asis_output(paste0("No activity records from DIS matched award numbers in the Phoenix database."))
+  
 ```
 
-**The next table (below) shows the top reporting activities.**
+The next table (below) shows the activities that reported the highest values for the relevant PT indicators. The total disbursements are included, if available.
 
 ```{r}
 top5_results %>%
   mutate(across(c(sales, transaction_amt, psi), ~ scales::label_dollar()(.))
          , hectares = scales::label_number()(round(hectares, 0))) %>% 
   select(ou = ou_dis, "Award Number" = award_number, a_code, a_name
-         , "Total Disbursements" = transaction_amt, Sales = sales
-         , Hectares = hectares, PSI = psi) %>% 
+         , "Total Disbursements" = transaction_amt, `PT1: Sales` = sales
+         , `PT3: Climate adaptive hectares` = hectares, `PT4: PSI` = psi) %>% 
   filter(ou == ou_name) %>% select(-ou) %>% 
   make_human_readable_names() %>% 
-  knitr::kable() 
+  knitr::kable(table.attr = "style='width:8in;'")
 ```
 
 ```{r}
-mapfile <- paste0("maps/",map_files$file[map_files$ou == ou_name])
+knitr::include_graphics(paste0("../", mapfile))
 
 ```
 
-![](mapfile)
-
 ### Appendix 1: Response to "Not on track" Performance Targets
 
-This section provides space for `r trimws(gsub("\\(.*$", "", ou_name ))` to provide an explanation of why the following PTs are not on track and how you could adjust to be on track in the coming year(s). To help in your response(s), the relevant section of the FTF/GFS Key Issue Narrative (KIN) is provided, as it *may be* useful in drafting a responses. Note that the KIN is addressing the sum of the out year targets (FY 2023) set by the `r trimws(gsub("\\(.*$", "", ou_name ))` activities that are reporting on each PT. The FY 2023 out year targets were set prior to the establishment of the FY 2030 Performance Targets, so the below explanations from the KIN may not apply to the Performance Target deviation.
+This section provides space for Bangladesh to provide an explanation of why the following PTs are not on track and how you could adjust to be on track in the coming year(s). To help in your response(s), the relevant section of the FTF/GFS Key Issue Narrative (KIN) is provided, as it may be useful in drafting responses. Note that the KIN is addressing the sum of the out year targets (FY 2023) set by the Bangladesh activities that are reporting on each PT. The FY 2023 out year targets were set prior to the establishment of the FY 2030 Performance Targets, so the below explanations from the KIN may not apply to the Performance Target deviation.
 
 -   In Section 4 of the FTF KIN, your OU discusses FY24 and FY25 targets, while these Scorecards are addressing progress against a trajectory from historical reporting to your OU’s FY30 target. Also, the FY 2023 out year targets were set prior to the establishment of the FY 2030 Performance Targets. Therefore, the below explanations from the KIN may not apply to these FY30 Performance Target deviations.
 
@@ -409,12 +355,19 @@ This section provides space for `r trimws(gsub("\\(.*$", "", ou_name ))` to prov
 
 -   Only PTs that are ‘Not on Track’ require review and explanation from the OU.
 
+Include the following two components in each response:
+
+1.  An explanation of why this target is not on track. Explanations may include that the OU/Mission was not aware of the target prior to planning activities. (Limit 100 words)
+
+2.  Planned actions for ‘not on track’ targets. Planned actions may include the launch of new activities, building awareness, holding portfolio reviews, or other suggestions. (Limit 100 words)
+
 ```{r make OU KIN}
 ou_kin <- kin %>% 
   filter(trimws(gsub("\\(.*$", "", ou_name )) ==  ou ) 
 ou_kin <- if(nrow(ou_kin) > 0L) {
   ou_kin %>% bind_cols(section1["scores"]$scores)
 } else tibble()
+ou_label <-  trimws(gsub("USAID ", "", gsub("\\(.*$", "", ou_name )))
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4a","score"] == "Not on track" }
@@ -426,12 +379,16 @@ knitr::asis_output(paste0("_Excerpt from FY23 KIN Section 4 to consider:_\\n"
                           , ou_kin$narrative_text[ou_kin$kin_section == "4a"], "\\n\\n"))
 ```
 
-```{r, include = ou_kin[ou_kin$kin_section == "4a","score"] == "Not on track" }
-knitr::asis_output(paste0("\\n#### Enter ", ou_name," Response Below:\\n"))
+```{r, include = ou_kin[ou_kin$kin_section == "4a","score"] == "Not on track"}
+knitr::asis_output(paste0("\\n#### Enter ", ou_label,"’s explanation of why this target is ‘Not on track’ below (Limit 100 words): \\n"))
+```
+
+```{r, include = ou_kin[ou_kin$kin_section == "4a","score"] == "Not on track"}
+knitr::asis_output(paste0("\\n#### Enter ", ou_label,"’s planned actions for ‘Not on track’ targets below (Limit 100 words): \\n"))
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4b","score"] == "Not on track" }
-knitr::asis_output("## Performance Target 2: Gender financing ratio\\n")
+knitr::asis_output("## Performance Target 2: Gender financing ratio [Not on track]\\n")
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4b","score"] == "Not on track" }
@@ -440,11 +397,15 @@ knitr::asis_output(paste0("_Excerpt from FY23 KIN Section 4 to consider: _\\n"
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4b","score"] == "Not on track" }
-knitr::asis_output(paste0("#### Enter ", ou_name," Response Below:\\n\\n\\n"))
+knitr::asis_output(paste0("\\n#### Enter ", ou_label,"’s explanation of why this target is ‘Not on track’ below (Limit 100 words): \\n"))
+```
+
+```{r, include = ou_kin[ou_kin$kin_section == "4b","score"] == "Not on track" }
+knitr::asis_output(paste0("\\n#### Enter ", ou_label,"’s planned actions for ‘Not on track’ targets below (Limit 100 words): \\n"))
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4c","score"] == "Not on track" }
-knitr::asis_output("## Performance Target 3: Hectares under climate adaptive and risk management practices\\n")
+knitr::asis_output("## Performance Target 3: Hectares under climate adaptive and risk management practices [Not on track]\\n")
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4c","score"] == "Not on track" }
@@ -453,11 +414,15 @@ knitr::asis_output(paste0("_Excerpt from FY23 KIN Section 4 to consider: _\\n"
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4c","score"] == "Not on track" }
-knitr::asis_output(paste0("#### Enter ", ou_name," Response Below:\\n\\n\\n"))
+knitr::asis_output(paste0("#### Enter ", ou_label,"’s explanation of why this target is ‘Not on track’ below (Limit 100 words): \\n"))
+```
+
+```{r, include = ou_kin[ou_kin$kin_section == "4c","score"] == "Not on track" }
+knitr::asis_output(paste0("#### Enter ", ou_label,"’s planned actions for ‘Not on track’ targets below (Limit 100 words): \\n"))
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4d","score"] == "Not on track" }
-knitr::asis_output("## Performance Target 4: Private sector investment\\n")
+knitr::asis_output("## Performance Target 4: Private sector investment [Not on track]\\n")
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4d","score"] == "Not on track" }
@@ -466,11 +431,15 @@ knitr::asis_output(paste0("_Excerpt from FY23 KIN Section 4 to consider: _\\n"
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4d","score"] == "Not on track" }
-knitr::asis_output(paste0("#### Enter ", ou_name," Response Below:\\n\\n\\n"))
+knitr::asis_output(paste0("#### Enter ", ou_label,"’s explanation of why this target is ‘Not on track’ below (Limit 100 words): \\n"))
+```
+
+```{r, include = ou_kin[ou_kin$kin_section == "4d","score"] == "Not on track" }
+knitr::asis_output(paste0("#### Enter ", ou_label,"’s planned actions for ‘Not on track’ targets below (Limit 100 words): \\n"))
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4e","score"] == "Not on track" }
-knitr::asis_output("## Performance Target 5: Minimumn Dietary Diversity for women (ZOI)\\n")
+knitr::asis_output("## Performance Target 5: Minimumn Dietary Diversity for women (ZOI) [Not on track]\\n")
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4e","score"] == "Not on track" }
@@ -479,5 +448,9 @@ knitr::asis_output(paste0("_Excerpt from FY23 KIN Section 4 to consider: _\\n"
 ```
 
 ```{r, include = ou_kin[ou_kin$kin_section == "4e","score"] == "Not on track" }
-knitr::asis_output(paste0("#### Enter ", ou_name," Response Below:\\n\\n\\n"))
+knitr::asis_output(paste0("#### Enter ", ou_label,"’s explanation of why this target is ‘Not on track’ below (Limit 100 words): \\n"))
+```
+
+```{r, include = ou_kin[ou_kin$kin_section == "4e","score"] == "Not on track" }
+knitr::asis_output(paste0("#### Enter ", ou_label,"’s planned actions for ‘Not on track’ targets below (Limit 100 words): \\n"))
 ```
