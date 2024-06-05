@@ -17,7 +17,7 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
   if("PT1: Sales" %in% ou_dat$name){
     sales_actual_to_outyear <- if(ou_name == "Group Target") {
           sales_(dat) %>%
-            filter( ! ou %in% sales_ous
+            filter( ! ou %in% sales_ous_to_program$program_ous
                     & !is.na(value)
                     & ((name == "target" & year == out_year) | (name == "actual" & year == 2023))) %>%
             group_by(name, year) %>%
@@ -86,19 +86,19 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
   # SALES
   ## TEXT -----------------
   sales_text <- if (ou_name == "Group Target") {
-    dat %>%
-      filter(year %in% 2023:2024 & ro == ro & !ou %in% sales_ous) %>%
+    active_activities_dat %>%
+      filter(year == 2023 & ro == ro & !ou %in% sales_ous_to_program$program_ous) %>%
       select(ro, ou, ic, udn, year, a_code, a_name, d_name, actual, target
              , deviation_percentage, deviation_narrative) %>%
       filter(ic == "EG.3.2-26")
   } else if (ou_name == "FTF Initiative") {
-    dat %>% filter(year %in% 2023:2024 ) %>%
+    active_activities_dat %>% filter(year == 2023 ) %>%
       select(ro, ou, ic, udn, year, a_code, a_name, d_name, actual, target
              , deviation_percentage, deviation_narrative) %>%
-      filter(ic == "EG.3.2-26")
+      filter(ic == "EG.3.2-26" & udn == "3")
   } else  {
-    dat %>%
-    filter(year %in% 2023:2024 & ro == ro & ou == ou_name) %>%
+    active_activities_dat %>%
+    filter(year == 2023 & ro == ro & ou == ou_name) %>%
     select(ro, ou, ic, udn, year, a_code, a_name, d_name, actual, target
            , deviation_percentage, deviation_narrative) %>%
     filter(ic == "EG.3.2-26")
@@ -157,7 +157,7 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
   # FINANCING -------------
   if(ou_name == "Group Target") {
     gf_actual_to_outyear <- dat %>%
-      filter(! ou %in% gf_ous) %>%
+      filter(! ou %in% gf_ous_to_program$program_ous) %>%
       gender_financing_(level = "initiative") %>%
       filter(!is.na(value)
              & ((name == "target" & year == out_year) |
@@ -183,7 +183,6 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
                   filter(year == 2023) %>%
                   mutate(type = "FY23 Reported Value")) %>%
       rename(`Value Type` = type, "PT2: Gender financing ratio" = value)
-
     } else if(ou_name == "FTF Initiative" ) {
     gf_actual_to_outyear <- gender_financing_(dat, level = "initiative") %>%
       filter(!is.na(value)
@@ -279,19 +278,20 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
 
   ## TEXT ---------------
   gf_text <- if(ou_name == "Group Target") {
-    gender_financing_(dat, level="im") %>%
-      filter(year %in% 2023 & ro == ro & ! ou %in% gf_ous & name =="actual") %>%
+    gender_financing_(active_activities_dat, level="im") %>%
+      filter(year %in% 2023 & ro == ro & ! ou %in% gf_ous_to_program$program_ous
+             & name =="actual") %>%
       select(ro, ou, year, a_code, a_name, name, `Male Value`, `Female Value`
              , `Female Per Person`, `Male Per Person`) %>%
       mutate(finance_gap = `Female Per Person` / `Male Per Person`)
     } else if(ou_name == "FTF Initiative"){
-      gender_financing_(dat, level="im") %>%
+      gender_financing_(active_activities_dat, level="im") %>%
         filter(year %in% 2023 & name =="actual") %>%
         select(ro, ou, year, a_code, a_name, name, `Male Value`, `Female Value`
                , `Female Per Person`, `Male Per Person`) %>%
         mutate(finance_gap = `Female Per Person` / `Male Per Person`)
     } else  {
-    gender_financing_(dat, level="im") %>%
+    gender_financing_(active_activities_dat, level="im") %>%
         filter(year %in% 2023 & ro == ro & ou == ou_name & name =="actual") %>%
         select(ro, ou, year, a_code, a_name, name, `Male Value`, `Female Value`
                , `Female Per Person`, `Male Per Person`) %>%
@@ -300,7 +300,7 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
 
   gf_n_aligned <- length(unique(gf_text$a_code))
   gf_n_contributing <- sum(!is.na(gf_text$finance_gap))
-  gf_total_financing <- sum_(gf_text$`Male Value` , gf_text$`Female Value`)
+  gf_total_financing <- sum_(gf_text$`Male Value`, gf_text$`Female Value`)
   gf_fy24_financing_target <-  gender_financing_(dat, level="ou") %>%
     filter(year == 2024 & ro == ro & ou == ou_name & name == "target") %>%
     select(value)
@@ -309,7 +309,7 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
                 ," had ", gf_n_contributing
                 , " IMs/Activities that reported all four sex disaggregates needed to contribute to PT2."
                 , " The total value of financing among all activities, regardless of disaggregates, was "
-                , scales::dollar_format()(round(gf_total_financing, -4))
+                , scales::dollar_format()(round(total_financing$total, -4))
                 ," (EG.3.2-27 total), with "
                 , scales::dollar_format()(round(gf_total_financing, -4))
                 , " that was disaggregated by females and males, and an additional "
@@ -340,7 +340,7 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
   if("PT3: Climate hectares" %in% ou_dat$name) {
     ht_actual_to_outyear <- if(ou_name == "Group Target") {
       hectares_(dat) %>%
-        filter(!ou %in% ht_ous
+        filter(!ou %in% ht_ous_to_program$program_ous
                # & !is.na(value)
                & ((name == "target" & year == out_year) |
                     (name == "actual" & year == 2023)))  %>%
@@ -412,7 +412,7 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
     ## TEXT ----------------
     ht_text <- if(ou_name == "Group Target") {
       active_activities_dat %>%
-        filter(year == 2023 & ro == ro & !ou %in% ht_ous) %>%
+        filter(year == 2023 & ro == ro & !ou %in% ht_ous_to_program$program_ous) %>%
         select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
                , deviation_percentage, deviation_narrative)
     } else if (ou_name == "FTF Initiative") {
@@ -461,7 +461,7 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
 
   # PSI -------------
   if(ou_name == "Group Target") {
-    psi_actual_to_outyear <-  dat %>% filter(!ou %in% psi_ous) %>%
+    psi_actual_to_outyear <-  dat %>% filter(!ou %in% psi_ous_to_program$program_ous) %>%
       psi_(level = "ou") %>%
       mutate(name = str_remove(name, "_3y")) %>%
       filter(!is.na(value)
@@ -579,7 +579,7 @@ s1_plot <- function(dat, active_activities_dat, ou_name, targets, ou_dat, mddw, 
              , deviation_percentage, deviation_narrative)
   } else if(ou_name == "Group Target") {
     dat %>%
-      filter(year == 2023 & ro == ro & ! ou %in% psi_ous) %>%
+      filter(year == 2023 & ro == ro & ! ou %in% psi_ous_to_program$program_ous) %>%
       select(ro, ou, ic, udn, year,a_code, a_name, d_name, actual, target
              , deviation_percentage, deviation_narrative)
 

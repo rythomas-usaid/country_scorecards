@@ -9,6 +9,7 @@ library(DBI)
 library(RSQLite)
 library(disR)
 library(googlesheets4)
+gs4_auth(email = "rythomas@usaid.gov")
 
 
 # Load data ------------
@@ -30,73 +31,42 @@ ati <- read_sheet("13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c", sheet = "ati")
   pivot_longer(-c(country, iso, income_group), names_to = "year")
 targets <- read_sheet("13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c", sheet = "targets_long")
 kin <- read_sheet("13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c", sheet = "kin")
+
 map_files <- read_sheet("13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c", sheet = "map_files")
-sales_ous <- unique(targets$ou[targets$name == "PT1: Sales"])
-gf_ous <- unique(targets$ou[targets$name == "PT2: Gender financing ratio"])
-ht_ous <- unique(targets$ou[targets$name == "PT3: Climate hectares"])
-psi_ous <- unique(targets$ou[targets$name == "PT4: Private sector investment (3-yr avg)"])
+
 ftf_programs <- read_sheet("13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c", sheet = "ftf_programs")
+target_country_ous <- ftf_programs$ou[!is.na(ftf_programs$scorecard_program)]
+usaid_ous <- ftf_programs$ou[!is.na(ftf_programs$scorecard_program) & ftf_programs$ro == "USAID"]
 
-
-usaid_ous <-c("FTF Initiative",
-                        "Afghanistan (OIG/AFG)",
-                        "USAID Bangladesh (BANGLADESH)",
-                        "Bureau for Resilience and Food Security (RFS)",
-                        "Georgia Program (GEORGIA)",
-                        "USAID Burma (BURMA)",
-                        "USAID Cambodia (CAMBODIA)",
-                        "USAID Colombia (COLOMBIA)",
-                        "USAID Dem Rep Congo (DROC)",
-                        "USAID Ethiopia (ETHIOPIA)",
-                        "USAID Egypt (EGYPT)",
-                        "USAID Ghana (GHANA)",
-                        "Group Target",
-                        "USAID Guatemala (GUATEMALA)",
-                        "USAID Haiti (HAITI)",
-                        "USAID Honduras (HONDURAS)",
-                        "International Food Assistance Division (IFA) (USDA/IFA)",
-                        "USAID Kenya (KENYA)",
-                        "USAID Liberia (LIBERIA)",
-                        "USAID Madagascar (MADAGASCAR)",
-                        "USAID Malawi (MALAWI)",
-                        "USAID Mali (MALI)",
-                        "USAID Mozambique (MOZAMBIQUE)",
-                        "USAID Nepal (NEPAL)",
-                        "USAID Niger (NIGER)",
-                        "USAID Nigeria (NIGERIA)",
-                        "USAID Pakistan (PAKISTAN)",
-                        "East Africa (EAST AFRICA)",
-                        "USAID Rwanda (RWANDA)",
-                        "Sahel Regional Program (SAHEL)",
-                        "USAID Senegal (SENEGAL)",
-                        "USAID South Sudan (SOUTH SUDAN)",
-                        "Regional Center for South Africa (S_AFR_REG)",
-                        "Sri Lanka",
-                        "USAID Tajikistan (TAJIKISTAN)",
-                        "USAID Tanzania (TANZANIA)",
-                        "USAID Uganda (UGANDA)",
-                        "West Africa Regional Program (WARP)",
-                        "USAID Zambia (ZAMBIA)",
-                        "USAID Zimbabwe (ZIMBABWE)")
+ou_to_program <- function(x = targets, name, indicator=NA) {
+  ous <- unique(targets$ou[targets$name == name & !is.na(targets$value)])
+  country_programs <- ftf_programs$country_program[ftf_programs$ou %in% ous]
+  country_program_ous <- ftf_programs$ou[ftf_programs$country_program %in% country_programs]
+  otp <- list("ous" = ous, "programs" = country_programs, "program_ous" = country_program_ous)
+  return(otp)
+}
+sales_ous_to_program <- ou_to_program(name = "PT1: Sales")
+gf_ous_to_program <- ou_to_program(name = "PT2: Gender financing ratio")
+ht_ous_to_program <- ou_to_program(name = "PT3: Climate hectares")
+psi_ous_to_program <- ou_to_program(name = "PT4: Private sector investment (3-yr avg)")
 
 con <- DBI::dbConnect(RSQLite::SQLite(), "~/R_scripts/data/2024-05-30/dis_extract.db")
-# dbWriteTable(con, "pt_udns", pt_udns, overwrite = TRUE)
-# con <- DBI::dbDisconnect(con)
-
-# copy_to(con, data)
 extract <- tbl(con, "extract") %>%
   filter(str_detect(a_name, stringr::fixed("_HLI_"), negate = TRUE) # Is not HLI
          & str_detect(ou, stringr::fixed("test"), negate = TRUE) # not a test bilateral OU DIS Training Activity - To Be Deleted
          & str_detect(a_name, stringr::fixed("test"), negate = TRUE) # not a test activity name
          & str_detect(a_name, stringr::fixed("DIS Training Activity - To Be Deleted"), negate = TRUE) # not the Training Activity from Ghana
-         &( # Is an FTF indicator or activity
+         & ( # Is an FTF indicator or activity
            indicator_origin == "FTF" | is_ftf == "Y")) %>%
   filter(a_code != "00002339") %>%
-  mutate(actual = ifelse(ic == "EG.3.2-26" & year == 2023 & udn == "3" & a_code == "00001612"
-                         , 119106690
-                         , ifelse(ic == "EG.3.2-26" & year == 2023 & udn == "3" & a_code == "00004553"
-                                  , 395800000, actual))) %>%
-  janitor::clean_names() %>% as_tibble()
+  # these figures were corrected previously; for 1612, in a post-script from the
+  # DIS export, and for 4553, the corrections are in DIS
+  # mutate(actual = ifelse(ic == "EG.3.2-26" & year == 2023 & udn == "3" & a_code == "00001612"
+  #                        , 119106690
+  #                        , ifelse(ic == "EG.3.2-26" & year == 2023 & udn == "3" & a_code == "00004553"
+  #                                 , 395800000, actual))) %>%
+  janitor::clean_names() %>% as_tibble() %>%
+  left_join(ftf_programs)
 
 pt_udns <- tbl(con, "pt_udns") %>% as_tibble()
 # dbWriteTable(con, "pt_udns", as.data.frame(pt_udns))
@@ -108,7 +78,6 @@ pt_udns <- tbl(con, "pt_udns") %>% as_tibble()
 # targets, or deviation narratives for an FTF indicator)
 # —OR—
 # Have any FY-24 Targets for any FTF indicator
-
 ## These criteria are excluded -->
 ## —OR—
 ## Have an activity ‘initiative association’ of FTF, have an “Ongoing”
@@ -116,22 +85,14 @@ pt_udns <- tbl(con, "pt_udns") %>% as_tibble()
 ## or if they don’t have an end date in the system, have start dates after October 1, 2017
 ## <--
 active_activities_dat <- extract %>%
-  filter(str_detect(a_name, stringr::fixed("_HLI_"), negate = TRUE) # Is not HLI
-         & str_detect(ou, stringr::fixed("test"), negate = TRUE) # not a test bilateral OU DIS Training Activity - To Be Deleted
-         & str_detect(a_name, stringr::fixed("test"), negate = TRUE) # not a test activity name
-         & str_detect(a_name, stringr::fixed("DIS Training Activity - To Be Deleted"), negate = TRUE) # not the Training Activity from Ghana
-         &( # Is an FTF indicator or activity
-           indicator_origin == "FTF" | is_ftf == "Y"
-         )
-         &(# Reported actuals, targets, or deviation narratives in FY23
+  filter(# Reported actuals, targets, or deviation narratives in FY23
            (
              year == 2023  & if_any(c(actual, target, deviation_narrative), ~ !is.na(.))
            )|( # OR reported FY24 targets
              year == 2024 & !is.na(target)
            )
-         )
-  ) %>% as_tibble()
-active_activities_unique <- active_activities_dat %>%  group_by(ro, ou, a_code, a_name) %>%
+         ) %>% as_tibble()
+active_activities_unique <- active_activities_dat %>% inner_join(pt_udns) %>%  group_by(ro, ou, a_code, a_name) %>%
   summarize(unique_indicator_count = length((unique(ic)))
             , indicators = paste0(unique(ic), collapse = "; ")
             , .groups = "drop")
@@ -146,12 +107,12 @@ input_dat <- inner_join(extract, pt_udns)
 ## Define params -----------
 ### Sales ------------------
 sales <- input_dat %>%
-  filter(year %in% 2022:2023 & ou %in% sales_ous) %>%
+  filter(year %in% 2022:2023 & ou %in% sales_ous_to_program$program_ous) %>%
   sales_() %>% filter(name == "actual") %>%
   select(ro, ou, year, type = name, `PT1: Sales` = value)
 # Add group of contributing countries
 sales_group <- input_dat %>%
-  filter(year %in% 2022:2023 & ! ou %in% sales_ous) %>%
+  filter(year %in% 2022:2023 & ! ou %in% sales_ous_to_program$program_ous) %>%
   sales_() %>% filter(name == "actual") %>%
   select(ro, ou, year, type = name, `PT1: Sales` = value) %>%
   group_by(type, year) %>%
@@ -163,8 +124,7 @@ sales_initiative <- input_dat %>%
   sales_() %>% filter(name == "actual") %>%
   select(ro, ou, year, type = name, `PT1: Sales` = value) %>% group_by(year, type) %>%
   summarize(ro = "USAID", ou="FTF Initiative", `PT1: Sales` = sum_(`PT1: Sales`))
-sales <- bind_rows(sales_initiative, sales, sales_group) %>%
-  filter(ou %in% ou_target_countries) %>% select(-ous)
+sales <- bind_rows(sales_initiative, sales, sales_group) %>% select(-ous)
 
 ### GF ratio  ------------------
 financing_ous <- extract %>%
@@ -172,16 +132,16 @@ financing_ous <- extract %>%
   distinct(ro, ou)
 gf <- input_dat %>%
   filter(year %in% 2022:2023) %>%
-  gender_financing_(level = "ou") %>% filter(name == "actual" & ou %in% gf_ous) %>%
+  gender_financing_(level = "ou") %>% filter(name == "actual" & ou %in% gf_ous_to_program$program_ous) %>%
   select(ro, ou, type = name, year, `PT2: Gender financing ratio` = value) %>%
   mutate(`PT2: Gender financing ratio` = case_when(
     is.na(`PT2: Gender financing ratio`) & ou %in% financing_ous$ou ~ 0
     , .default = `PT2: Gender financing ratio`))
 gf_group_ous <- input_dat %>%
-  filter(year %in% 2022:2023 & ! ou %in% gf_ous) %>%
+  filter(year %in% 2022:2023 & ! ou %in% gf_ous_to_program$program_ous) %>%
   gender_financing_(level = "ou") %>% distinct(ou)
 gf_group <- input_dat %>%
-  filter(year %in% 2022:2023 & ! ou %in% gf_ous) %>%
+  filter(year %in% 2022:2023 & ! ou %in% gf_ous_to_program$program_ous) %>%
   gender_financing_(level = "initiative") %>%
   filter(name == "actual") %>%
   select(type = name, year, `PT2: Gender financing ratio` = value)  %>%
@@ -195,8 +155,7 @@ gf_initiative <- input_dat %>%
   gender_financing_(level = "initiative") %>%
   select(type = name, year, `PT2: Gender financing ratio` = value) %>%
   mutate(ro = "USAID", ou = "FTF Initiative", .before = everything())
-gf <- bind_rows(gf_initiative, gf, gf_group) %>%
-  filter(ou %in% ou_target_countries)
+gf <- bind_rows(gf_initiative, gf, gf_group)
 
 ### HT ------------------
 hectares_ous <- extract %>%
@@ -204,14 +163,14 @@ hectares_ous <- extract %>%
   distinct(ro, ou)
 ht <- input_dat %>%
   filter( year %in% 2022:2023) %>%
-  hectares_() %>% filter(name == "actual" & ou %in% ht_ous) %>%
+  hectares_() %>% filter(name == "actual" & ou %in% ht_ous_to_program$program_ous) %>%
   select(ro, ou, type = name, year, `PT3: Climate hectares` = value) %>%
   mutate(`PT3: Climate hectares` = case_when(
     is.na(`PT3: Climate hectares`) & ou %in% hectares_ous$ou ~ 0
     , .default = `PT3: Climate hectares`))
 ht_group <- input_dat %>%
   filter( year %in% 2022:2023) %>%
-  hectares_() %>% filter(name == "actual" & ! ou %in% ht_ous) %>%
+  hectares_() %>% filter(name == "actual" & ! ou %in% ht_ous_to_program$program_ous) %>%
   select(ro, ou, type = name, year, `PT3: Climate hectares` = value) %>%
   mutate(`PT3: Climate hectares` = case_when(
     is.na(`PT3: Climate hectares`) & ou %in% hectares_ous$ou ~ 0
@@ -224,15 +183,11 @@ ht_initiative <- input_dat %>%
   filter( year %in% 2022:2023) %>%
   hectares_() %>% filter(name == "actual") %>%
   select(ro, ou, type = name, year, `PT3: Climate hectares` = value) %>%
-  mutate(`PT3: Climate hectares` = case_when(
-    is.na(`PT3: Climate hectares`) & ou %in% hectares_ous$ou ~ 0
-    , .default = `PT3: Climate hectares`)) %>%
   group_by(type, year) %>%
   summarise(ro = "USAID", ou = "FTF Initiative"
             , `PT3: Climate hectares` = sum_(`PT3: Climate hectares`)
             , .groups = "drop")
-ht <- bind_rows(ht_initiative, ht, ht_group) %>%
-  filter(ou %in% ou_target_countries) %>% select(-ous)
+ht <- bind_rows(ht_initiative, ht, ht_group) %>% select(-ous)
 
 ### PSI ------------------
 psi_initiative <- input_dat %>% psi_(level = "initiative") %>%
@@ -241,14 +196,14 @@ psi_initiative <- input_dat %>% psi_(level = "initiative") %>%
   select(-c(ic, a_codes)) %>% mutate(ro = "USAID", ou = "FTF Initiative", .before=everything())
 psi <- input_dat %>% psi_(level = "ou") %>%
   filter(str_detect(name, "_3y") & year %in% 2022:2023
-         & !is.na(value) & ou %in% psi_ous) %>%
+         & !is.na(value) & ou %in% psi_ous_to_program$program_ous) %>%
   rename(type = name, `PT4: Private sector investment (3-yr avg)` = value) %>%
   # pivot_wider() %>%
   mutate(type = str_remove(type, "_3y")) %>%
   select(-c(ic, a_codes))
 psi_group <- input_dat %>% psi_(level = "ou") %>%
   filter(str_detect(name, "_3y") & year %in% 2022:2023
-         & !is.na(value) & !ou %in% psi_ous) %>%
+         & !is.na(value) & !ou %in% psi_ous_to_program$program_ous) %>%
   rename(type = name, `PT4: Private sector investment (3-yr avg)` = value) %>%
   # pivot_wider() %>%
   mutate(type = str_remove(type, "_3y")) %>%
@@ -259,8 +214,7 @@ psi_group <- input_dat %>% psi_(level = "ou") %>%
 psi_baseline <- bind_rows(psi_group, psi, filter(psi_initiative, type == "actual" & year == 2022)) %>%
   select(ro, ou, type, year, starts_with("PT4")) %>%
   filter(year==2022 & type == "actual") %>% mutate(type = "baseline")
-psi <- bind_rows(filter(psi_initiative, !(type == "actual" & year == 2022)), psi_group, psi) %>%
-  filter(ou %in% ou_target_countries) %>% select(-ous)
+psi <- bind_rows(filter(psi_initiative, !(type == "actual" & year == 2022)), psi_group, psi) %>% select(-ous)
 
 ### MDDW ------------------
 mali_pbs <- c("USAID Mali (MALI) SOUTH","USAID Mali (MALI) RFZ")
@@ -304,7 +258,7 @@ pt_dat <- sales %>% full_join(gf) %>% full_join(ht) %>% full_join(psi) %>%
 googlesheets4::write_sheet(pt_dat, "1ynvPDs5RqmfUbSFlcTlCry7z4dRnFnMBR37S_GtvNLw"
                            , sheet = "pt_dat")
 # Add back OUs with no PSI baseline so they show up in the Summary Chart on page 1.
-psiNA <- setdiff(ou_target_countries ,psi_baseline$ou)
+psiNA <- setdiff(target_country_ous ,psi_baseline$ou)
 addtopsi <- tibble(ro =  "USAID", ou = psiNA,  year = 2022, type = "baseline", name = "PT4: Private sector investment (3-yr avg)", value = NA)
 
 pt_upload <- pt_dat %>%
@@ -355,7 +309,7 @@ pt_upload <- pt_dat %>%
   ) %>%  filter(if_any(c(baseline, `performance target`)
                        , ~ !is.na(.)) | str_detect(name, "PT5") | str_detect(name, "PT4")) %>%
   rowwise() %>% mutate(across(ends_with("norm"), ~ ifelse( !is.finite(.), NA, . ))) %>%
-  mutate(group_target = ! ou %in% ou_target_countries)
+  mutate(group_target = ! ou %in% target_country_ous)
 
 finance_total <- extract %>% gender_financing_(level = "ou") %>%
   filter(name == "actual", year ==2023) %>%
@@ -400,3 +354,4 @@ mddw_dat <- mddw %>%
 # ou_names <- unique(active_activities_unique$ou)
 
 map_files <- read_sheet("13UfrGUnaDJbCO-Nz6tP0T1ORrJcVAeELGZK7WLKTJ6c", sheet = "map_files")
+
