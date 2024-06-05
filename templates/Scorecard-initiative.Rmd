@@ -33,7 +33,7 @@ finance_sex_dna <- extract %>%
   filter(year == 2023 & ic=="EG.3.2-27" & udn %in% dna_udns) %>%
   summarize(dna = sum_(actual))
 finance_sex_mixed <- extract %>%
-  filter(ro == ro & ou == ou_name & year == 2023 & ic=="EG.3.2-27" & udn %in% other_udns) %>%
+  filter(year == 2023 & ic=="EG.3.2-27" & udn %in% other_udns) %>%
   summarize(mixed = sum_(actual))
 total_financing <- extract %>%
   filter(year == 2023 & ic=="EG.3.2-27" & udn == "3") %>%
