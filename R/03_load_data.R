@@ -134,35 +134,37 @@ sales <- input_dat %>%
 # sales <- bind_rows(sales_initiative, sales, sales_group) %>% select(-ous)
 
 ### GF ratio  ------------------
-financing_ous <- extract %>%
-  filter(ic == "EG.3.2-27" & udn == "3" & year %in% 2021:2022 & !is.na(actual)) %>%
-  distinct(ro, ou)
 gf <- input_dat %>%
   filter(year %in% 2022:2023) %>%
-  gender_financing_(level = "ou") %>% filter(name == "actual" & ou %in% gf_ous_to_program$program_ous) %>%
-  select(ro, ou, type = name, year, `PT2: Gender financing ratio` = value) %>%
+  gender_financing_(level = "im") %>% filter(name == "actual") %>%
+  left_join(ftf_programs) %>%
+  group_by(scorecard_program, type = name, year) %>%
+  disR:::summarize_financing_ratio(level = "ou") %>%
+  rename(`PT2: Gender financing ratio` = value, gf_ous = ous) %>%
   mutate(`PT2: Gender financing ratio` = case_when(
-    is.na(`PT2: Gender financing ratio`) & ou %in% financing_ous$ou ~ 0
-    , .default = `PT2: Gender financing ratio`))
-gf_group_ous <- input_dat %>%
-  filter(year %in% 2022:2023 & ! ou %in% gf_ous_to_program$program_ous) %>%
-  gender_financing_(level = "ou") %>% distinct(ou)
-gf_group <- input_dat %>%
-  filter(year %in% 2022:2023 & ! ou %in% gf_ous_to_program$program_ous) %>%
-  gender_financing_(level = "initiative") %>%
-  filter(name == "actual") %>%
-  select(type = name, year, `PT2: Gender financing ratio` = value)  %>%
-  mutate(ro = "USAID", ou = "Group Target", .before = everything()) %>%
-  mutate(`PT2: Gender financing ratio` = case_when(
-    is.na(`PT2: Gender financing ratio`) & ou %in% financing_ous$ou ~ 0
-    , .default = `PT2: Gender financing ratio`))
+    is.na(`PT2: Gender financing ratio`) & scorecard_program != "Group Target" ~ 0
+    , .default = `PT2: Gender financing ratio`)) %>%
+
+# gf_group <- input_dat %>%
+#   filter(year %in% 2022:2023 & ! ou %in% gf_ous_to_program$program_ous) %>%
+#   gender_financing_(level = "initiative") %>%
+#   filter(name == "actual") %>%
+#   select(type = name, year, `PT2: Gender financing ratio` = value)  %>%
+#   mutate(ro = "USAID", ou = "Group Target", .before = everything()) %>%
+#   mutate(`PT2: Gender financing ratio` = case_when(
+#     is.na(`PT2: Gender financing ratio`) & ou %in% financing_ous$ou ~ 0
+#     , .default = `PT2: Gender financing ratio`))
 # Add initiative level
-gf_initiative <- input_dat %>%
-  filter(year %in% 2022:2023) %>%
-  gender_financing_(level = "initiative") %>%
-  select(type = name, year, `PT2: Gender financing ratio` = value) %>%
-  mutate(ro = "USAID", ou = "FTF Initiative", .before = everything())
-gf <- bind_rows(gf_initiative, gf, gf_group)
+  bind_rows(
+    input_dat %>%
+      filter(year %in% 2022:2023) %>%
+      gender_financing_(level = "im") %>% filter(name == "actual") %>%
+      left_join(ftf_programs) %>%
+      group_by(year, type = name) %>% disR:::summarize_financing_ratio(level = "ou") %>%
+      rename(`PT2: Gender financing ratio` = value, gf_ous = ous) %>%
+      mutate(scorecard_program = "FTF Initiative")
+  )
+    # gf <- bind_rows(gf_initiative, gf, gf_group)
 
 ### HT ------------------
 hectares_ous <- extract %>%
