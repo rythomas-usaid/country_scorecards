@@ -167,36 +167,39 @@ gf <- input_dat %>%
     # gf <- bind_rows(gf_initiative, gf, gf_group)
 
 ### HT ------------------
-hectares_ous <- extract %>%
-  filter(ic == "EG.3.2-25" & udn == "3" & year %in% 2021:2022 & !is.na(actual)) %>%
-  distinct(ro, ou)
 ht <- input_dat %>%
   filter( year %in% 2022:2023) %>%
-  hectares_() %>% filter(name == "actual" & ou %in% ht_ous_to_program$program_ous) %>%
-  select(ro, ou, type = name, year, `PT3: Climate hectares` = value) %>%
+  hectares_() %>%  filter(name == "actual") %>%
+  left_join(ftf_programs) %>%
+  group_by(scorecard_program, year, type = name) %>%
+  summarise(ht_ous = paste0(unique(ou), collapse = "; ")
+            , `PT3: Climate hectares`= sum_(value)) %>%
   mutate(`PT3: Climate hectares` = case_when(
-    is.na(`PT3: Climate hectares`) & ou %in% hectares_ous$ou ~ 0
-    , .default = `PT3: Climate hectares`))
-ht_group <- input_dat %>%
-  filter( year %in% 2022:2023) %>%
-  hectares_() %>% filter(name == "actual" & ! ou %in% ht_ous_to_program$program_ous) %>%
-  select(ro, ou, type = name, year, `PT3: Climate hectares` = value) %>%
-  mutate(`PT3: Climate hectares` = case_when(
-    is.na(`PT3: Climate hectares`) & ou %in% hectares_ous$ou ~ 0
+    is.na(`PT3: Climate hectares`) & scorecard_program != "Group Target" ~ 0
     , .default = `PT3: Climate hectares`)) %>%
-  group_by(type, year) %>%
-  summarise(ro = "USAID", ous = paste0(unique(ou), collapse = "; ")
-            , ou = "Group Target"
-            , `PT3: Climate hectares` = sum_(`PT3: Climate hectares`))
-ht_initiative <- input_dat %>%
-  filter( year %in% 2022:2023) %>%
-  hectares_() %>% filter(name == "actual") %>%
-  select(ro, ou, type = name, year, `PT3: Climate hectares` = value) %>%
-  group_by(type, year) %>%
-  summarise(ro = "USAID", ou = "FTF Initiative"
-            , `PT3: Climate hectares` = sum_(`PT3: Climate hectares`)
-            , .groups = "drop")
-ht <- bind_rows(ht_initiative, ht, ht_group) %>% select(-ous)
+# ht_group <- input_dat %>%
+#   filter( year %in% 2022:2023) %>%
+#   hectares_() %>% filter(name == "actual" & ! ou %in% ht_ous_to_program$program_ous) %>%
+#   select(ro, ou, type = name, year, `PT3: Climate hectares` = value) %>%
+#   mutate(`PT3: Climate hectares` = case_when(
+#     is.na(`PT3: Climate hectares`) & ou %in% hectares_ous$ou ~ 0
+#     , .default = `PT3: Climate hectares`)) %>%
+#   group_by(type, year) %>%
+#   summarise(ro = "USAID", ous = paste0(unique(ou), collapse = "; ")
+#             , ou = "Group Target"
+#             , `PT3: Climate hectares` = sum_(`PT3: Climate hectares`))
+
+  bind_rows(
+    input_dat %>%
+      filter( year %in% 2022:2023) %>%
+      hectares_() %>%  filter(name == "actual") %>%
+      left_join(ftf_programs) %>%
+      group_by(year, type = name) %>%
+      summarise(ht_ous = paste0(unique(ou), collapse = "; ")
+                , `PT3: Climate hectares`= sum_(value)) %>%
+      mutate(scorecard_program = "FTF Initiative")
+  )
+# ht <- bind_rows(ht_initiative, ht, ht_group) %>% select(-ous)
 
 ### PSI ------------------
 psi_initiative <- input_dat %>% psi_(level = "initiative") %>%
