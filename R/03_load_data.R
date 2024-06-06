@@ -111,8 +111,8 @@ sales <- input_dat %>%
   sales_() %>% filter(name == "actual") %>%
   left_join(ftf_programs) %>%
   group_by(scorecard_program, year, type = name) %>%
-  summarise(ous = paste0(unique(ou), collapse = "; ")
-            , `PT1: Sales` = sum_(value))
+  summarise(sales_ous = paste0(unique(ou), collapse = "; ")
+            , `PT1: Sales` = sum_(value)) %>%
 # # Add group of contributing countries
 # sales_group <- input_dat %>%
 #   filter(year %in% 2022:2023 & ! ou %in% sales_ous_to_program$program_ous) %>%
@@ -122,12 +122,16 @@ sales <- input_dat %>%
 #   summarise(ro = "USAID", ous = paste0(unique(ou), collapse = "; ")
 #             , ou = "Group Target", `PT1: Sales` = sum_(`PT1: Sales`))
 # add initiative level
-sales_initiative <- input_dat %>%
+
+  bind_rows(input_dat %>%
   filter(year %in% 2022:2023) %>%
   sales_() %>% filter(name == "actual") %>%
   select(ro, ou, year, type = name, `PT1: Sales` = value) %>% group_by(year, type) %>%
-  summarize(ro = "USAID", ou="FTF Initiative", `PT1: Sales` = sum_(`PT1: Sales`))
-sales <- bind_rows(sales_initiative, sales, sales_group) %>% select(-ous)
+  summarize(scorecard_program = "FTF Initiative"
+            , sales_ous =  paste0(unique(ou), collapse = "; ")
+            , `PT1: Sales` = sum_(`PT1: Sales`))
+  )
+# sales <- bind_rows(sales_initiative, sales, sales_group) %>% select(-ous)
 
 ### GF ratio  ------------------
 financing_ous <- extract %>%
