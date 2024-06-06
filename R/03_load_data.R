@@ -107,17 +107,20 @@ input_dat <- inner_join(extract, pt_udns)
 ## Define params -----------
 ### Sales ------------------
 sales <- input_dat %>%
-  filter(year %in% 2022:2023 & ou %in% sales_ous_to_program$program_ous) %>%
+  filter(year %in% 2022:2023) %>%
   sales_() %>% filter(name == "actual") %>%
-  select(ro, ou, year, type = name, `PT1: Sales` = value)
-# Add group of contributing countries
-sales_group <- input_dat %>%
-  filter(year %in% 2022:2023 & ! ou %in% sales_ous_to_program$program_ous) %>%
-  sales_() %>% filter(name == "actual") %>%
-  select(ro, ou, year, type = name, `PT1: Sales` = value) %>%
-  group_by(type, year) %>%
-  summarise(ro = "USAID", ous = paste0(unique(ou), collapse = "; ")
-            , ou = "Group Target", `PT1: Sales` = sum_(`PT1: Sales`))
+  left_join(ftf_programs) %>%
+  group_by(scorecard_program, year, type = name) %>%
+  summarise(ous = paste0(unique(ou), collapse = "; ")
+            , `PT1: Sales` = sum_(value))
+# # Add group of contributing countries
+# sales_group <- input_dat %>%
+#   filter(year %in% 2022:2023 & ! ou %in% sales_ous_to_program$program_ous) %>%
+#   sales_() %>% filter(name == "actual") %>%
+#   select(ro, ou, year, type = name, `PT1: Sales` = value) %>%
+#   group_by(type, year) %>%
+#   summarise(ro = "USAID", ous = paste0(unique(ou), collapse = "; ")
+#             , ou = "Group Target", `PT1: Sales` = sum_(`PT1: Sales`))
 # add initiative level
 sales_initiative <- input_dat %>%
   filter(year %in% 2022:2023) %>%
