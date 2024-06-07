@@ -202,13 +202,13 @@ ht <- input_dat %>%
 # ht <- bind_rows(ht_initiative, ht, ht_group) %>% select(-ous)
 
 ### PSI ------------------
-psi_initiative <- input_dat %>% psi_(level = "initiative") %>%
+psi_initiative <- input_dat %>% psi_(scorecard = TRUE, level = "initiative", program = "FTF Initiative") %>%
   filter(name %in% c("target", "actual") & year %in% 2022:2023 & !is.na(value)) %>%
   rename(type = name, `PT4: Private sector investment` = value) %>%
-  select(-c(ic, a_codes)) %>% mutate(ro = "USAID", ou = "FTF Initiative", .before=everything())
-psi <- input_dat %>% psi_(level = "ou") %>%
+  select(-c(ic, a_codes))
+psi <- input_dat %>% left_join(ftf_programs) %>% psi_(scorecard = TRUE, level = "ou") %>%
   filter(str_detect(name, "_3y") & year %in% 2022:2023
-         & !is.na(value) & ou %in% psi_ous_to_program$program_ous) %>%
+         & !is.na(value) ) %>%
   rename(type = name, `PT4: Private sector investment (3-yr avg)` = value) %>%
   # pivot_wider() %>%
   mutate(type = str_remove(type, "_3y")) %>%
