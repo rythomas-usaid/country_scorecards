@@ -15,16 +15,7 @@ library(DBI)
 library(RSQLite)
 library(disR)
 library(googlesheets4)
-
-gs4_auth(
-  email = gargle::gargle_oauth_email(),
-  path = NULL,
-  subject = NULL,
-  scopes = "spreadsheets",
-  cache = gargle::gargle_oauth_cache(),
-  use_oob = gargle::gargle_oob_default(),
-  token = NULL
-)
+gs4_auth(email = "rythomas@usaid.gov")
 
 source("R/05_helpers.R")
 source("R/02_make_scorecard_plots.R")
