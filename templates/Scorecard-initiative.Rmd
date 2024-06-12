@@ -194,7 +194,7 @@ section1["mddw_plot"]$mddw_plot
 
 At the Operating Unit level, the Performance Targets are based in part on the FY 2024 budget request. The budget chart below includes EG.3 money only.
 
-```{r budget plot, fig.width=6.5, fig.height=4, warning=FALSE, message=FALSE}
+```{r budget plot, fig.width=6.5, fig.height=6, warning=FALSE, message=FALSE}
 # Budget --------
 # ou_budget <- budget %>% filter(year %in% 2020:2024 & ou == trimws(gsub("\\(.*$", "", gsub("USAID ", "",  ou_name )))) %>%
 #   mutate(budget = ifelse(ou == "Bureau for Resilience and Food Security (RFS)", budget/2, budget)

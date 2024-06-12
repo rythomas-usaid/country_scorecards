@@ -920,17 +920,18 @@ make_ftf_budget_plot <- function(budget, ou_name) {
     ggplot(aes(x = as.Date(paste0(`Fiscal Year`, "-01-01"))
                , y = `Enacted Budget (000)`, fill = ro)) +
     geom_bar(stat = "identity") +
-
     # ------------ Set themes
     common_theme() + usaid_plot() +
     scale_fill_manual(values = rev(
       c("#002F6C",  "#BA0C2F", "#0067B9", "#6C6463", "#651D32", "#A7C6ED"
-        , "#8C8985", "#CFCDC9"))) +
+        , "#8C8985"
+        , "#CFCDC9"))) +
     theme(legend.position="bottom", plot.title = element_text(size = 16)) +
     scale_y_continuous(labels = scales::label_dollar(), limits = c(0, NA)) +
-    scale_x_date(date_labels = paste0("FY", "%y")) +
+    scale_x_date(date_labels = paste0("FY", "%y"), date_breaks = "3 years") +
     ylab("") + xlab("") + guides(fill = guide_legend(nrow = 2)) +
-    labs(caption = "*The FY22 figure includes Ukraine Supplemental.") + theme(plot.caption = element_text(size = 10))+
+    labs(caption = "*The USAID spending figures include Ukraine Supplemental funding for food security in FY 2022\n($655 million) and FY 2023 ($260 million). Some interagency partners had not provided data at\nthe time of publication: MCC and Inter-American Foundation are excluded entirely, and FY 2023\ndata are not included for US Department of the Treasury. The USDA figures only include the\nFood for Progress Program as that is what contributes to FTF results.") +
+    theme(plot.caption = element_text(size = 10))+
     ggtitle(label = "Enacted Appropriation* ($000s)")
 
   return(budget_plot)
